@@ -150,8 +150,25 @@ extension DS_ChatVC: UITableViewDataSource {
         ) as? DS_ChatMessageCell else {
             return UITableViewCell()
         }
-        cell.configure(with: messageItems[indexPath.row])
+        let item = messageItems[indexPath.row]
+        cell.configure(with: item)
         return cell
+    }
+
+    private func openChatRoom(with item: DS_ChatMessageItem) {
+        let contact = DS_ChatRoomContact(
+            name: item.name,
+            avatarImageName: item.avatarImageName ?? "chat_room"
+        )
+        navigationController?.pushViewController(DS_ChatRoomVC(contact: contact), animated: true)
+    }
+
+    private func openChatRoom(with friend: DS_ChatFriendItem) {
+        let contact = DS_ChatRoomContact(
+            name: friend.name,
+            avatarImageName: friend.avatarImageName ?? "chat_room"
+        )
+        navigationController?.pushViewController(DS_ChatRoomVC(contact: contact), animated: true)
     }
 
     private func makeFriendCell(tableView: UITableView, indexPath: IndexPath) -> UITableViewCell {
@@ -161,7 +178,11 @@ extension DS_ChatVC: UITableViewDataSource {
         ) as? DS_ChatFriendCell else {
             return UITableViewCell()
         }
-        cell.configure(with: friendItems[indexPath.row])
+        let item = friendItems[indexPath.row]
+        cell.configure(with: item)
+        cell.onChatTapped = { [weak self] in
+            self?.openChatRoom(with: item)
+        }
         return cell
     }
 
@@ -188,6 +209,12 @@ extension DS_ChatVC: UITableViewDataSource {
 }
 
 extension DS_ChatVC: UITableViewDelegate {
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard currentTab == .chat else { return }
+        openChatRoom(with: messageItems[indexPath.row])
+    }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 76
