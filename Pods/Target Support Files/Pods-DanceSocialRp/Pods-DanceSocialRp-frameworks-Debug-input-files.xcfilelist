@@ -1,0 +1,5 @@
+${PODS_ROOT}/Target Support Files/Pods-DanceSocialRp/Pods-DanceSocialRp-frameworks.sh
+${BUILT_PRODUCTS_DIR}/IQKeyboardManager/IQKeyboardManager.framework
+${BUILT_PRODUCTS_DIR}/SVProgressHUD/SVProgressHUD.framework
+${BUILT_PRODUCTS_DIR}/SnapKit/SnapKit.framework
+${BUILT_PRODUCTS_DIR}/Toast-Swift/Toast_Swift.framework

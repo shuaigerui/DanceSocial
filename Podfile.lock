@@ -1,0 +1,30 @@
+PODS:
+  - IQKeyboardManager (6.5.19)
+  - SnapKit (5.7.1)
+  - SVProgressHUD (2.3.1):
+    - SVProgressHUD/Core (= 2.3.1)
+  - SVProgressHUD/Core (2.3.1)
+  - Toast-Swift (5.1.1)
+
+DEPENDENCIES:
+  - IQKeyboardManager
+  - SnapKit
+  - SVProgressHUD
+  - Toast-Swift
+
+SPEC REPOS:
+  https://github.com/CocoaPods/Specs.git:
+    - IQKeyboardManager
+    - SnapKit
+    - SVProgressHUD
+    - Toast-Swift
+
+SPEC CHECKSUMS:
+  IQKeyboardManager: c8665b3396bd0b79402b4c573eac345a31c7d485
+  SnapKit: d612e99e678a2d3b95bf60b0705ed0a35c03484a
+  SVProgressHUD: 4837c74bdfe2e51e8821c397825996a8d7de6e22
+  Toast-Swift: 7a03a532afe3a560d4044bc7c237e2864d295173
+
+PODFILE CHECKSUM: fd66bddcb26a694ff0d1b56217c2f3ffddecf08f
+
+COCOAPODS: 1.16.2
