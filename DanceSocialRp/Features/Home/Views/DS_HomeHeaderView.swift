@@ -18,13 +18,7 @@ class DS_HomeHeaderView: UIView {
         static let horizontalInset: CGFloat = 16
     }
 
-    private let teamItems: [DS_HomeTeamItem] = [
-        DS_HomeTeamItem(coverImageName: nil, avatarImageName: nil, title: "Trending"),
-        DS_HomeTeamItem(coverImageName: nil, avatarImageName: nil, title: "Trending"),
-        DS_HomeTeamItem(coverImageName: nil, avatarImageName: nil, title: "Trending"),
-        DS_HomeTeamItem(coverImageName: nil, avatarImageName: nil, title: "Trending"),
-        DS_HomeTeamItem(coverImageName: nil, avatarImageName: nil, title: "Trending")
-    ]
+    private var teamItems: [DS_HomeTeamItem] = []
 
     private lazy var teamCollectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
@@ -110,6 +104,11 @@ class DS_HomeHeaderView: UIView {
         imageView.isUserInteractionEnabled = true
         return imageView
     }()
+
+    func updateTeamItems(_ items: [DS_HomeTeamItem]) {
+        teamItems = items
+        teamCollectionView.reloadData()
+    }
 
     private func setupBannerTap() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleBannerTap))

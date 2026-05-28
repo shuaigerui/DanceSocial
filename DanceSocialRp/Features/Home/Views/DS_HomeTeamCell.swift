@@ -73,8 +73,8 @@ final class DS_HomeTeamCell: UICollectionViewCell {
     }
 
     func configure(with item: DS_HomeTeamItem) {
-        coverImageView.image = item.coverImageName.flatMap { UIImage(named: $0) }
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        coverImageView.image = UserData.image(for: item.coverImageName)
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         titleLabel.text = item.title
     }
 

@@ -81,7 +81,7 @@ final class DS_LiveRoomCell: UICollectionViewCell {
     }
 
     func configure(with item: DS_LiveRoomItem, listType: DS_LiveRoomListType) {
-        coverImageView.image = item.coverImageName.flatMap { UIImage(named: $0) }
+        coverImageView.image = UserData.image(for: item.coverImageName)
         titleLabel.text = item.title
 
         switch listType {
@@ -92,8 +92,8 @@ final class DS_LiveRoomCell: UICollectionViewCell {
         }
 
         for (index, imageView) in avatarImageViews.enumerated() {
-            let imageName = item.avatarImageNames.indices.contains(index) ? item.avatarImageNames[index] : nil
-            imageView.image = imageName.flatMap { UIImage(named: $0) }
+            let path = item.avatarImageNames.indices.contains(index) ? item.avatarImageNames[index] : nil
+            imageView.image = UserData.image(for: path)
         }
     }
 

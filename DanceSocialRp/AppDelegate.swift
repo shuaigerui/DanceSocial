@@ -27,12 +27,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    private func initializeWindow(){
-        
+    private func initializeWindow() {
         window = UIWindow(frame: UIScreen.main.bounds)
-        
-        self.window?.rootViewController = DS_TabbarVC()//UINavigationController(rootViewController: DS_WelcomeVC())
-        self.window?.makeKeyAndVisible()
+
+        if DS_CurrentUser.shared.isLoggedIn {
+            window?.rootViewController = DS_TabbarVC()
+        } else {
+            window?.rootViewController = UINavigationController(rootViewController: DS_WelcomeVC())
+        }
+
+        window?.makeKeyAndVisible()
     }
 
 }

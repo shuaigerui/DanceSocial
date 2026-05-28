@@ -17,10 +17,8 @@ final class DS_BlackListCell: UICollectionViewCell {
     static let reuseIdentifier = "DS_BlackListCell"
 
     private enum Layout {
-        static let cardCornerRadius: CGFloat = 20
-        static let avatarSize: CGFloat = 56
-        static let cancelAspect: CGFloat = 189.0 / 489.0
-        static let contentInset: CGFloat = 12
+        static let cardCornerRadius: CGFloat = 24
+        static let avatarSize: CGFloat = 66
     }
 
     var onCancelTapped: (() -> Void)?
@@ -45,7 +43,7 @@ final class DS_BlackListCell: UICollectionViewCell {
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.textColor = .black
-        label.font = .systemFont(ofSize: 15, weight: .bold)
+        label.font = .systemFont(ofSize: 20, weight: .semibold)
         label.textAlignment = .center
         return label
     }()
@@ -53,7 +51,6 @@ final class DS_BlackListCell: UICollectionViewCell {
     private lazy var cancelButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "black_cancel"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapCancel), for: .touchUpInside)
         return button
     }()
@@ -87,19 +84,18 @@ final class DS_BlackListCell: UICollectionViewCell {
 
         cancelButton.snp.makeConstraints { make in
             make.leading.trailing.bottom.equalToSuperview()
-            make.height.equalTo(cancelButton.snp.width).multipliedBy(Layout.cancelAspect)
+            make.height.equalTo(65)
         }
 
         avatarImageView.snp.makeConstraints { make in
-            make.top.equalToSuperview().inset(Layout.contentInset + 4)
+            make.top.equalToSuperview().offset(14)
             make.centerX.equalToSuperview()
             make.width.height.equalTo(Layout.avatarSize)
         }
 
         nameLabel.snp.makeConstraints { make in
             make.top.equalTo(avatarImageView.snp.bottom).offset(10)
-            make.leading.trailing.equalToSuperview().inset(8)
-            make.bottom.lessThanOrEqualTo(cancelButton.snp.top).offset(-8)
+            make.leading.trailing.equalToSuperview().inset(5)
         }
     }
 

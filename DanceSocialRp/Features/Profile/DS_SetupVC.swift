@@ -7,23 +7,34 @@
 
 import UIKit
 
+enum DS_SetupOption: Int, CaseIterable {
+    case contact
+    case policy
+    case blacklist
+    case guide
+    case signOut
+    case deleteAccount
+
+    var imageName: String {
+        switch self {
+        case .contact: return "setup_contact"
+        case .policy: return "setup_policy"
+        case .blacklist: return "setup_black"
+        case .guide: return "setup_guide"
+        case .signOut: return "setup_out"
+        case .deleteAccount: return "setup_del"
+        }
+    }
+}
+
 class DS_SetupVC: DS_SecondaryVC {
 
     private enum Layout {
         static let horizontalInset: CGFloat = 16
         static let navBarHeight: CGFloat = 44
         static let optionSpacing: CGFloat = 12
-        static let optionAspect: CGFloat = 201.0 / 1029.0
-        static let confirmAspect: CGFloat = 192.0 / 801.0
+        static let optionRowHeight: CGFloat = 67
     }
-
-    private let optionImageNames = [
-        "setup_contact",
-        "setup_policy",
-        "setup_guide",
-        "setup_out",
-        "setup_del"
-    ]
 
     private let navBarView: UIView = {
         let view = UIView()
@@ -49,26 +60,21 @@ class DS_SetupVC: DS_SecondaryVC {
 
     private let optionsContainerView = UIView()
 
+    private lazy var optionButtons: [UIButton] = DS_SetupOption.allCases.map { option in
+        let button = UIButton(type: .custom)
+        button.setBackgroundImage(UIImage(named: option.imageName), for: .normal)
+        button.tag = option.rawValue
+        button.addTarget(self, action: #selector(didTapOption(_:)), for: .touchUpInside)
+        return button
+    }
+
     private lazy var optionsStackView: UIStackView = {
-        let imageViews = optionImageNames.map { name -> UIImageView in
-            let imageView = UIImageView(image: UIImage(named: name))
-            imageView.contentMode = .scaleToFill
-            imageView.isUserInteractionEnabled = true
-            return imageView
-        }
-        let stack = UIStackView(arrangedSubviews: imageViews)
+        let stack = UIStackView(arrangedSubviews: optionButtons)
         stack.axis = .vertical
         stack.spacing = Layout.optionSpacing
         stack.alignment = .fill
         stack.distribution = .fill
         return stack
-    }()
-
-    private lazy var confirmButton: UIButton = {
-        let button = UIButton(type: .custom)
-        button.setBackgroundImage(UIImage(named: "shop_confirm"), for: .normal)
-        button.addTarget(self, action: #selector(didTapConfirm), for: .touchUpInside)
-        return button
     }()
 
     override func viewDidLoad() {
@@ -82,7 +88,6 @@ class DS_SetupVC: DS_SecondaryVC {
 
         view.addSubview(navBarView)
         view.addSubview(optionsContainerView)
-        view.addSubview(confirmButton)
 
         navBarView.addSubview(backButton)
         navBarView.addSubview(titleLabel)
@@ -105,17 +110,10 @@ class DS_SetupVC: DS_SecondaryVC {
             make.center.equalToSuperview()
         }
 
-        confirmButton.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-45)
-            make.height.equalTo(64)
-            make.width.equalTo(267)
-        }
-
         optionsContainerView.snp.makeConstraints { make in
             make.top.equalTo(navBarView.snp.bottom).offset(32)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.lessThanOrEqualTo(confirmButton.snp.top).offset(-24)
+            make.bottom.lessThanOrEqualTo(view.safeAreaLayoutGuide).offset(-24)
         }
 
         optionsStackView.snp.makeConstraints { make in
@@ -124,18 +122,26 @@ class DS_SetupVC: DS_SecondaryVC {
     }
 
     private func setupOptionRowConstraints() {
-        optionsStackView.arrangedSubviews.forEach { view in
-            view.snp.makeConstraints { make in
-                make.height.equalTo(67)
+        optionButtons.forEach { button in
+            button.snp.makeConstraints { make in
+                make.height.equalTo(Layout.optionRowHeight)
             }
         }
     }
 
-    @objc private func didTapBack() {
-        navigationController?.popViewController(animated: true)
+    @objc private func didTapOption(_ sender: UIButton) {
+        guard let option = DS_SetupOption(rawValue: sender.tag) else { return }
+        switch option {
+            case .blacklist:
+                self.navigationController?.pushViewController(DS_BlackListVC(), animated: true)
+//            case .signOut:
+//                // 退出登录逻辑
+            default:
+                break
+        }
     }
 
-    @objc private func didTapConfirm() {
+    @objc private func didTapBack() {
         navigationController?.popViewController(animated: true)
     }
 }

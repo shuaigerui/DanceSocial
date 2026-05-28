@@ -16,14 +16,8 @@ class DS_HomeVC: DS_BaseVC {
         static let itemHeightRatio: CGFloat = 250.0 / 167.0
     }
 
-    private let clipItems: [DS_HomeClipItem] = Array(
-        repeating: DS_HomeClipItem(
-            coverImageName: nil,
-            avatarImageName: nil,
-            title: "Trending"
-        ),
-        count: 8
-    )
+    private var clipItems: [DS_HomeClipItem] = []
+    private var videoPosts: [DS_PostModel] = []
 
     private let headerView = DS_HomeHeaderView()
 
@@ -54,6 +48,12 @@ class DS_HomeVC: DS_BaseVC {
         )
         return collectionView
     }()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -62,6 +62,31 @@ class DS_HomeVC: DS_BaseVC {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        invalidateHeaderLayoutIfNeeded()
+    }
+    
+    private func loadData() {
+        let teamItems = UserData.allLiveRooms().map { room in
+            DS_HomeTeamItem(
+                coverImageName: room.coverUrl,
+                avatarImageName: room.hostAvatarUrl,
+                title: room.title
+            )
+        }
+
+        videoPosts = UserData.allPosts().filter(\.isVideo)
+        clipItems = videoPosts.map { post in
+            DS_HomeClipItem(
+                videoPath: post.mediaUrl,
+                avatarImageName: post.avatarUrl,
+                title: post.userName
+            )
+        }
+
+        headerView.updateTeamItems(teamItems)
+        collectionView.reloadData()
+
+        lastHeaderSize = .zero
         invalidateHeaderLayoutIfNeeded()
     }
 
@@ -114,7 +139,7 @@ class DS_HomeVC: DS_BaseVC {
     }
 }
 
-extension DS_HomeVC: UICollectionViewDataSource {
+extension DS_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         clipItems.count
@@ -149,6 +174,12 @@ extension DS_HomeVC: UICollectionViewDataSource {
         }
         header.embed(headerView)
         return header
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item < videoPosts.count else { return }
+        let videoVC = DS_VideoVC(post: videoPosts[indexPath.item])
+        navigationController?.pushViewController(videoVC, animated: true)
     }
 }
 

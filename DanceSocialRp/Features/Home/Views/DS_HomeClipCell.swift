@@ -8,7 +8,8 @@
 import UIKit
 
 struct DS_HomeClipItem {
-    let coverImageName: String?
+    /// 视频资源路径，封面取首帧
+    let videoPath: String?
     let avatarImageName: String?
     let title: String
 }
@@ -35,7 +36,7 @@ final class DS_HomeClipCell: UICollectionViewCell {
 
     private let playImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "home_play"))
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 
@@ -67,15 +68,32 @@ final class DS_HomeClipCell: UICollectionViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    private var loadingVideoPath: String?
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        loadingVideoPath = nil
+        coverImageView.image = nil
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         contentView.layer.cornerRadius = Layout.cornerRadius
     }
 
     func configure(with item: DS_HomeClipItem) {
-        coverImageView.image = item.coverImageName.flatMap { UIImage(named: $0) }
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        loadingVideoPath = item.videoPath
+        coverImageView.image = nil
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         titleLabel.text = item.title
+        playImageView.isHidden = item.videoPath == nil
+
+        guard let videoPath = item.videoPath else { return }
+
+        DS_VideoThumbnailLoader.thumbnail(for: videoPath) { [weak self] image in
+            guard let self, self.loadingVideoPath == videoPath else { return }
+            self.coverImageView.image = image
+        }
     }
 
     private func setupUI() {

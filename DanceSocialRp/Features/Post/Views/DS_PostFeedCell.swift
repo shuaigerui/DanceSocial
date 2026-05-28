@@ -11,7 +11,10 @@ struct DS_PostFeedItem {
     let avatarImageName: String?
     let userName: String
     let content: String
-    let mediaImageName: String?
+    /// 图片动态资源路径
+    let imagePath: String?
+    /// 视频动态资源路径（封面取首帧）
+    let videoPath: String?
 }
 
 final class DS_PostFeedCell: UITableViewCell {
@@ -87,7 +90,7 @@ final class DS_PostFeedCell: UITableViewCell {
 
     private let playImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "home_play"))
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 
@@ -96,17 +99,41 @@ final class DS_PostFeedCell: UITableViewCell {
         setupUI()
     }
 
+    private var loadingVideoPath: String?
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        loadingVideoPath = nil
+        mediaImageView.image = nil
+    }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
     func configure(with item: DS_PostFeedItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        loadingVideoPath = nil
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         userNameLabel.text = item.userName
         contentLabel.text = item.content
-        mediaImageView.image = item.mediaImageName.flatMap { UIImage(named: $0) }
-        playImageView.isHidden = item.mediaImageName == nil
+
+        let isVideo = item.videoPath != nil
+        let hasMedia = isVideo || item.imagePath != nil
+
+        mediaImageView.isHidden = !hasMedia
+        playImageView.isHidden = !isVideo
+        mediaImageView.image = nil
+
+        if let imagePath = item.imagePath {
+            mediaImageView.image = UserData.image(for: imagePath)
+        } else if let videoPath = item.videoPath {
+            loadingVideoPath = videoPath
+            DS_VideoThumbnailLoader.thumbnail(for: videoPath) { [weak self] image in
+                guard let self, self.loadingVideoPath == videoPath else { return }
+                self.mediaImageView.image = image
+            }
+        }
     }
 
     private func setupUI() {

@@ -5,8 +5,9 @@
 //  Created by  mac on 2026/5/28.
 //
 
-import UIKit
 import PhotosUI
+import Toast_Swift
+import UIKit
 
 class DS_CreateLiveVC: DS_SecondaryVC {
 
@@ -182,8 +183,27 @@ class DS_CreateLiveVC: DS_SecondaryVC {
 
     @objc private func didTapConfirm() {
         view.endEditing(true)
-        // TODO: submit titleTextField.text and selectedCoverImage
-        navigationController?.popViewController(animated: true)
+
+        let title = titleTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if title.isEmpty {
+            view.makeToast("Please enter a title")
+            return
+        }
+
+        guard let coverImage = selectedCoverImage else {
+            view.makeToast("Please select a cover image")
+            return
+        }
+
+        guard DS_CurrentUser.shared.addCreatedLiveRoom(title: title, coverImage: coverImage) else {
+            view.makeToast("Failed to create chat room")
+            return
+        }
+
+        view.makeToast("Chat room created successfully")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
     }
 }
 

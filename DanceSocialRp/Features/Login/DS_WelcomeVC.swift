@@ -97,7 +97,7 @@ class DS_WelcomeVC: DS_BaseVC {
     }
 
     @objc private func didTapAppleSignIn() {
-        // TODO: Apple 登录
+        navigationController?.pushViewController(DS_SetupInfoVC(source: .apple), animated: true)
     }
 
     @objc private func didTapCreateAccount() {

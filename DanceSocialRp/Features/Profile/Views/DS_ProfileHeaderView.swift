@@ -95,7 +95,7 @@ final class DS_ProfileHeaderView: UIView {
         super.init(frame: frame)
         backgroundColor = .black
         setupUI()
-        configure(with: .preview)
+        configure(with: DS_ProfileHeaderInfo.preview)
     }
 
     @available(*, unavailable)
@@ -103,20 +103,18 @@ final class DS_ProfileHeaderView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func configure(with user: DS_UserModel) {
+        nameLabel.text = user.userName
+        let avatar = DS_CurrentUser.shared.avatarImage(for: user) ?? UserData.image(for: user.avatarUrl)
+        coverImageView.image = avatar
+        avatarImageView.image = avatar
+    }
+
     func configure(with info: DS_ProfileHeaderInfo) {
         nameLabel.text = info.userName
-
-        if let coverImageName = info.coverImageName {
-            coverImageView.image = UIImage(named: coverImageName)
-        } else {
-            coverImageView.image = nil
-        }
-
-        if let avatarImageName = info.avatarImageName {
-            avatarImageView.image = UIImage(named: avatarImageName)
-        } else {
-            avatarImageView.image = nil
-        }
+        let avatar = UserData.image(for: info.avatarImageName ?? info.coverImageName)
+        coverImageView.image = avatar
+        avatarImageView.image = avatar
     }
 
     private func setupUI() {
@@ -153,6 +151,7 @@ final class DS_ProfileHeaderView: UIView {
         coinShopButton.snp.makeConstraints { make in
             make.top.equalTo(avatarImageView.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
+            make.height.equalTo(80)
         }
 
         reviseButton.snp.makeConstraints { make in

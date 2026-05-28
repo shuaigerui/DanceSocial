@@ -13,20 +13,7 @@ class DS_ProfileVC: DS_BaseVC {
         static let headerHeight: CGFloat = 650
     }
 
-    private let feedItems: [DS_PostFeedItem] = [
-        DS_PostFeedItem(
-            avatarImageName: nil,
-            userName: "Trending",
-            content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
-        ),
-        DS_PostFeedItem(
-            avatarImageName: nil,
-            userName: "Trending",
-            content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
-        )
-    ]
+    private var feedItems: [DS_PostFeedItem] = []
 
     private let headerView = DS_ProfileHeaderView()
 
@@ -43,20 +30,42 @@ class DS_ProfileVC: DS_BaseVC {
             DS_PostFeedCell.self,
             forCellReuseIdentifier: DS_PostFeedCell.reuseIdentifier
         )
+        tableView.contentInsetAdjustmentBehavior = .never
         return tableView
     }()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupTableHeader()
-        
-        
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateTableHeaderIfNeeded()
+    }
+    
+    private func loadData() {
+        guard let user = DS_CurrentUser.shared.user else { return }
+
+        headerView.configure(with: user)
+
+        feedItems = user.posts.map { post in
+            DS_PostFeedItem(
+                avatarImageName: post.avatarUrl,
+                userName: post.userName,
+                content: post.content,
+                imagePath: post.isImage ? post.mediaUrl : nil,
+                videoPath: post.isVideo ? post.mediaUrl : nil
+            )
+        }
+        tableView.reloadData()
     }
 
     private func setupUI() {

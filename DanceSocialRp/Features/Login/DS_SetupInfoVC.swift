@@ -7,6 +7,12 @@
 
 import UIKit
 import PhotosUI
+import Toast_Swift
+
+enum DS_SetupInfoSource {
+    case register(account: String, password: String)
+    case apple
+}
 
 class DS_SetupInfoVC: DS_BaseVC {
 
@@ -18,7 +24,22 @@ class DS_SetupInfoVC: DS_BaseVC {
         static let linkColor = UIColor(red: 232 / 255, green: 148 / 255, blue: 77 / 255, alpha: 1)
     }
 
+    private let source: DS_SetupInfoSource
     private var selectedAvatarImage: UIImage?
+
+    init(source: DS_SetupInfoSource) {
+        self.source = source
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    convenience init() {
+        self.init(source: .register(account: "", password: ""))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     private let topImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "login_topView"))
@@ -282,8 +303,33 @@ class DS_SetupInfoVC: DS_BaseVC {
 
     @objc private func didTapCreateAccount() {
         view.endEditing(true)
-        // TODO: 提交头像 selectedAvatarImage、昵称 nameTextField.text 完成注册
-        navigationController?.pushViewController(DS_GuideVC(), animated: true)
+
+        let name = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !name.isEmpty else {
+            view.makeToast("Please enter your name")
+            return
+        }
+
+        switch source {
+        case .register(let account, let password):
+            guard !account.isEmpty else {
+                view.makeToast("Invalid account")
+                return
+            }
+            DS_CurrentUser.shared.registerUser(
+                account: account,
+                password: password,
+                userName: name,
+                avatarImage: selectedAvatarImage
+            )
+        case .apple:
+            DS_CurrentUser.shared.registerAppleUser(
+                userName: name,
+                avatarImage: selectedAvatarImage
+            )
+        }
+
+        DS_CurrentUser.shared.enterMainInterface()
     }
 }
 

@@ -17,21 +17,8 @@ class DS_LiveVC: DS_BaseVC {
         static let itemHeightRatio: CGFloat = 250.0 / 167.0
     }
 
-    private let recommendItems: [DS_LiveRoomItem] = [
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Dance Power"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Making friends through dance"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Rhythm Resonance"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Dance Power"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Making friends through dance"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Rhythm Resonance")
-    ]
-
-    private let creationItems: [DS_LiveRoomItem] = [
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "EXPRESS YOUR"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "MOVES"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Dance Power"),
-        DS_LiveRoomItem(coverImageName: nil, avatarImageNames: [nil, nil, nil], title: "Rhythm Resonance")
-    ]
+    private var recommendItems: [DS_LiveRoomItem] = []
+    private var creationItems: [DS_LiveRoomItem] = []
 
     private var currentTab: DS_LiveRoomListType = .recommend
 
@@ -74,6 +61,12 @@ class DS_LiveVC: DS_BaseVC {
         )
         return collectionView
     }()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -83,6 +76,36 @@ class DS_LiveVC: DS_BaseVC {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateHeaderReferenceSizeIfNeeded()
+    }
+    
+    private func loadData() {
+        let allRooms = UserData.allLiveRooms()
+        recommendItems = allRooms.map { makeLiveRoomItem(from: $0) }
+
+        let currentUserId = DS_CurrentUser.shared.user?.userId
+        let myRooms = allRooms.filter { $0.hostUserId == currentUserId }
+        creationItems = myRooms.map { makeLiveRoomItem(from: $0) }
+
+        collectionView.reloadData()
+    }
+
+    private func makeLiveRoomItem(from room: DS_LiveModel) -> DS_LiveRoomItem {
+        var avatars = room.memberAvatarUrls.map { Optional($0) }
+        if avatars.isEmpty, let hostAvatar = room.hostAvatarUrl {
+            avatars = [hostAvatar]
+        }
+        while avatars.count < 3 {
+            avatars.append(nil)
+        }
+        if avatars.count > 3 {
+            avatars = Array(avatars.prefix(3))
+        }
+
+        return DS_LiveRoomItem(
+            coverImageName: room.coverUrl,
+            avatarImageNames: avatars,
+            title: room.title
+        )
     }
 
     private func setupUI() {

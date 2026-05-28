@@ -13,26 +13,7 @@ class DS_PostVC: DS_BaseVC {
         static let headerHeight: CGFloat = 255
     }
 
-    private let feedItems: [DS_PostFeedItem] = [
-        DS_PostFeedItem(
-            avatarImageName: nil,
-            userName: "Trending",
-            content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
-        ),
-        DS_PostFeedItem(
-            avatarImageName: nil,
-            userName: "Trending",
-            content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
-        ),
-        DS_PostFeedItem(
-            avatarImageName: nil,
-            userName: "Trending",
-            content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
-        )
-    ]
+    private var feedItems: [DS_PostFeedItem] = []
 
     private let headerView = DS_PostHeaderView()
 
@@ -51,6 +32,12 @@ class DS_PostVC: DS_BaseVC {
         )
         return tableView
     }()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -63,6 +50,26 @@ class DS_PostVC: DS_BaseVC {
         updateTableHeaderIfNeeded()
     }
 
+    private func loadData() {
+        var posts = UserData.allPosts()
+        if let user = DS_CurrentUser.shared.user {
+            posts.removeAll { $0.userId == user.userId }
+            posts.insert(contentsOf: user.posts, at: 0)
+        }
+
+        feedItems = posts.map { post in
+            DS_PostFeedItem(
+                avatarImageName: post.avatarUrl,
+                userName: post.userName,
+                content: post.content,
+                imagePath: post.isImage ? post.mediaUrl : nil,
+                videoPath: post.isVideo ? post.mediaUrl : nil
+            )
+        }
+        tableView.reloadData()
+    }
+    
+    
     private func setupUI() {
         view.addSubview(tableView)
         tableView.snp.makeConstraints { make in

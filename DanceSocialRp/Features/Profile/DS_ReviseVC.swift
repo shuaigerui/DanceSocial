@@ -93,11 +93,33 @@ class DS_ReviseVC: DS_SecondaryVC {
         button.addTarget(self, action: #selector(didTapRevise), for: .touchUpInside)
         return button
     }()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupAvatarTap()
+    }
+    
+    
+    private func loadData() {
+        guard let user = DS_CurrentUser.shared.user else { return }
+
+        nameTextField.text = user.userName
+        selectedAvatarImage = nil
+
+        if let image = DS_CurrentUser.shared.avatarImage(for: user) {
+            avatarImageView.image = image
+            avatarImageView.backgroundColor = .clear
+        } else {
+            avatarImageView.image = UIImage(named: "login_pic")
+            avatarImageView.backgroundColor = UIColor.hex("#555555")
+        }
     }
 
     private func setupUI() {
@@ -185,7 +207,12 @@ class DS_ReviseVC: DS_SecondaryVC {
 
     @objc private func didTapRevise() {
         view.endEditing(true)
-        // TODO: submit selectedAvatarImage and nameTextField.text
+        guard DS_CurrentUser.shared.updateProfile(
+            userName: nameTextField.text,
+            avatarImage: selectedAvatarImage
+        ) else {
+            return
+        }
         navigationController?.popViewController(animated: true)
     }
 }

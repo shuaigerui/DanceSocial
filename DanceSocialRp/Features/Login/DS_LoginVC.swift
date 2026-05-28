@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Toast_Swift
 
 enum DS_LoginMode {
     case login
@@ -336,12 +337,30 @@ class DS_LoginVC: DS_BaseVC {
     }
 
     @objc private func didTapPrimaryAction() {
+        view.endEditing(true)
+
+        let account = mailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let password = passwordTextField.text ?? ""
+
         switch mode {
         case .login:
-            // TODO: 登录
-            break
+            guard !account.isEmpty, !password.isEmpty else {
+                view.makeToast("Please enter account and password")
+                return
+            }
+            if DS_CurrentUser.shared.signIn(account: account, password: password) {
+                return
+            }
+            view.makeToast("Invalid account or password")
         case .register:
-            navigationController?.pushViewController(DS_SetupInfoVC(), animated: true)
+            guard !account.isEmpty, !password.isEmpty else {
+                view.makeToast("Please enter account and password")
+                return
+            }
+            navigationController?.pushViewController(
+                DS_SetupInfoVC(source: .register(account: account, password: password)),
+                animated: true
+            )
         }
     }
 

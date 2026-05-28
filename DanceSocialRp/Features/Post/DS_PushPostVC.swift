@@ -5,8 +5,10 @@
 //  Created by  mac on 2026/5/28.
 //
 
-import UIKit
 import PhotosUI
+import Toast_Swift
+import UIKit
+import UniformTypeIdentifiers
 
 enum DS_PushReleaseType: Int {
     case instant = 0
@@ -41,6 +43,7 @@ class DS_PushPostVC: DS_SecondaryVC {
 
     private var selectedType: DS_PushReleaseType = .instant
     private var selectedMediaImage: UIImage?
+    private var selectedVideoFileURL: URL?
 
     private lazy var backButton: UIButton = {
         let button = UIButton(type: .custom)
@@ -217,6 +220,7 @@ class DS_PushPostVC: DS_SecondaryVC {
 
     private func clearSelectedMedia() {
         selectedMediaImage = nil
+        selectedVideoFileURL = nil
         mediaPreviewImageView.image = nil
         mediaPreviewImageView.isHidden = true
         addMediaButton.setImage(UIImage(named: "push_add"), for: .normal)
@@ -256,8 +260,72 @@ class DS_PushPostVC: DS_SecondaryVC {
 
     @objc private func didTapConfirm() {
         view.endEditing(true)
-        // TODO: submit post content, selectedType, selectedMediaImage
-        navigationController?.popViewController(animated: true)
+
+        let content = contentTextView.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if content.isEmpty {
+            view.makeToast("Please enter a description")
+            return
+        }
+
+        let didPublish: Bool
+        switch selectedType {
+        case .instant:
+            guard let image = selectedMediaImage else {
+                view.makeToast("Please select an image or video")
+                return
+            }
+            didPublish = DS_CurrentUser.shared.addPost(
+                content: content,
+                mediaType: .image,
+                image: image,
+                videoSourceURL: nil
+            )
+        case .video:
+            guard let videoURL = selectedVideoFileURL else {
+                view.makeToast("Please select an image or video")
+                return
+            }
+            didPublish = DS_CurrentUser.shared.addPost(
+                content: content,
+                mediaType: .video,
+                image: nil,
+                videoSourceURL: videoURL
+            )
+        }
+
+        guard didPublish else {
+            view.makeToast("Failed to publish post")
+            return
+        }
+
+        view.makeToast("Post created successfully")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+    }
+
+    private func importPickedVideo(from tempURL: URL) {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Posts", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let destinationURL = directory.appendingPathComponent("pick_\(UUID().uuidString).mp4")
+        do {
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try FileManager.default.removeItem(at: destinationURL)
+            }
+            try FileManager.default.copyItem(at: tempURL, to: destinationURL)
+        } catch {
+            return
+        }
+
+        selectedVideoFileURL = destinationURL
+        DS_VideoThumbnailLoader.thumbnail(for: destinationURL.path) { [weak self] image in
+            guard let image else { return }
+            DispatchQueue.main.async {
+                self?.applyMediaPreview(image)
+            }
+        }
     }
 }
 
@@ -275,18 +343,23 @@ extension DS_PushPostVC: PHPickerViewControllerDelegate {
 
         guard let itemProvider = results.first?.itemProvider else { return }
 
-        if itemProvider.canLoadObject(ofClass: UIImage.self) {
+        if selectedType == .instant, itemProvider.canLoadObject(ofClass: UIImage.self) {
             itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
                 guard let image = object as? UIImage else { return }
                 DispatchQueue.main.async {
+                    self?.selectedVideoFileURL = nil
                     self?.applyMediaPreview(image)
                 }
             }
             return
         }
 
-        if selectedType == .video {
-            // TODO: load video thumbnail or asset URL for upload
+        if selectedType == .video,
+           itemProvider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) {
+            itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { [weak self] url, _ in
+                guard let url else { return }
+                self?.importPickedVideo(from: url)
+            }
         }
     }
 }

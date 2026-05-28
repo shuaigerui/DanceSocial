@@ -18,13 +18,15 @@ class DS_PersonVC: DS_SecondaryVC {
             avatarImageName: nil,
             userName: "Trending",
             content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
+            imagePath: nil,
+            videoPath: nil
         ),
         DS_PostFeedItem(
             avatarImageName: nil,
             userName: "Trending",
             content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
-            mediaImageName: nil
+            imagePath: nil,
+            videoPath: nil
         )
     ]
 

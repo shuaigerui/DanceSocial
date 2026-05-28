@@ -263,7 +263,11 @@ class DS_ChatRoomVC: DS_SecondaryVC {
     }
 
     @objc private func didTapVideo() {
-        // TODO: start video call
+        let videoRoom = DS_VideoRoomVC(
+            peerName: contact.name,
+            peerAvatarPath: contact.avatarImageName
+        )
+        navigationController?.pushViewController(videoRoom, animated: true)
     }
 
     @objc private func didTapSend() {
