@@ -17,6 +17,7 @@ class DS_LiveVC: DS_BaseVC {
         static let itemHeightRatio: CGFloat = 250.0 / 167.0
     }
 
+    private var allRooms: [DS_LiveModel] = []
     private var recommendItems: [DS_LiveRoomItem] = []
     private var creationItems: [DS_LiveRoomItem] = []
 
@@ -28,6 +29,16 @@ class DS_LiveVC: DS_BaseVC {
             return recommendItems
         case .creation:
             return creationItems
+        }
+    }
+
+    private var displayRooms: [DS_LiveModel] {
+        switch currentTab {
+        case .recommend:
+            return allRooms
+        case .creation:
+            let currentUserId = DS_CurrentUser.shared.user?.userId
+            return allRooms.filter { $0.hostUserId == currentUserId }
         }
     }
 
@@ -79,26 +90,29 @@ class DS_LiveVC: DS_BaseVC {
     }
     
     private func loadData() {
-        let allRooms = UserData.allLiveRooms()
-        recommendItems = allRooms.map { makeLiveRoomItem(from: $0) }
+        var rooms = UserData.allLiveRooms()
+        if let user = DS_CurrentUser.shared.user {
+            let existingIds = Set(rooms.map(\.roomId))
+            let extra = user.createdLiveRooms.filter { !existingIds.contains($0.roomId) }
+            rooms.append(contentsOf: extra)
+        }
+        allRooms = rooms
+        recommendItems = rooms.map { makeLiveRoomItem(from: $0) }
 
         let currentUserId = DS_CurrentUser.shared.user?.userId
-        let myRooms = allRooms.filter { $0.hostUserId == currentUserId }
+        let myRooms = rooms.filter { $0.hostUserId == currentUserId }
         creationItems = myRooms.map { makeLiveRoomItem(from: $0) }
 
         collectionView.reloadData()
     }
 
     private func makeLiveRoomItem(from room: DS_LiveModel) -> DS_LiveRoomItem {
-        var avatars = room.memberAvatarUrls.map { Optional($0) }
-        if avatars.isEmpty, let hostAvatar = room.hostAvatarUrl {
-            avatars = [hostAvatar]
-        }
-        while avatars.count < 3 {
-            avatars.append(nil)
-        }
-        if avatars.count > 3 {
-            avatars = Array(avatars.prefix(3))
+        let avatarPaths = UserData.liveRoomDisplayAvatarPaths(
+            hostAvatarUrl: room.hostAvatarUrl,
+            memberAvatarUrls: room.memberAvatarUrls
+        )
+        let avatars: [String?] = (0..<3).map { index in
+            index < avatarPaths.count ? avatarPaths[index] : nil
         }
 
         return DS_LiveRoomItem(
@@ -192,6 +206,18 @@ extension DS_LiveVC: UICollectionViewDataSource {
         header.embed(headerView)
         headerView.updateTabSelection(currentTab)
         return header
+    }
+}
+
+extension DS_LiveVC: UICollectionViewDelegate {
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        let rooms = displayRooms
+        guard indexPath.item < rooms.count else { return }
+        let room = rooms[indexPath.item]
+        let scriptIndex = allRooms.firstIndex(where: { $0.roomId == room.roomId }) ?? indexPath.item
+        let groupVC = DS_GroupRoomVC(room: room, roomScriptIndex: scriptIndex % 6)
+        navigationController?.pushViewController(groupVC, animated: true)
     }
 }
 

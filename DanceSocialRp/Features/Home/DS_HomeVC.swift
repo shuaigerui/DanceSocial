@@ -68,6 +68,7 @@ class DS_HomeVC: DS_BaseVC {
     private func loadData() {
         let teamItems = UserData.allLiveRooms().map { room in
             DS_HomeTeamItem(
+                hostUserId: room.hostUserId,
                 coverImageName: room.coverUrl,
                 avatarImageName: room.hostAvatarUrl,
                 title: room.title
@@ -77,7 +78,9 @@ class DS_HomeVC: DS_BaseVC {
         videoPosts = UserData.allPosts().filter(\.isVideo)
         clipItems = videoPosts.map { post in
             DS_HomeClipItem(
+                userId: post.userId,
                 videoPath: post.mediaUrl,
+                videoCoverPath: UserData.resolvedVideoCoverPath(for: post),
                 avatarImageName: post.avatarUrl,
                 title: post.userName
             )
@@ -96,8 +99,25 @@ class DS_HomeVC: DS_BaseVC {
             make.edges.equalToSuperview()
         }
 
+        configureHeaderCallbacks()
+    }
+
+    private func openPersonProfile(userId: String) {
+        navigationController?.pushViewController(DS_PersonVC(userId: userId), animated: true)
+    }
+
+    private func openPersonProfile(for item: DS_HomeTeamItem) {
+        guard let userId = item.hostUserId else { return }
+        openPersonProfile(userId: userId)
+    }
+
+    private func configureHeaderCallbacks() {
         headerView.onAIBannerTapped = { [weak self] in
             self?.navigationController?.pushViewController(DS_AIRommVC(), animated: true)
+        }
+
+        headerView.onTeamItemTapped = { [weak self] item in
+            self?.openPersonProfile(for: item)
         }
     }
 
@@ -155,7 +175,12 @@ extension DS_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
         ) as? DS_HomeClipCell else {
             return UICollectionViewCell()
         }
-        cell.configure(with: clipItems[indexPath.item])
+        let item = clipItems[indexPath.item]
+        cell.configure(with: item)
+        cell.onAvatarTapped = { [weak self] in
+            guard let self, let userId = item.userId else { return }
+            self.openPersonProfile(userId: userId)
+        }
         return cell
     }
 
@@ -173,6 +198,7 @@ extension DS_HomeVC: UICollectionViewDataSource, UICollectionViewDelegate {
             return UICollectionReusableView()
         }
         header.embed(headerView)
+        configureHeaderCallbacks()
         return header
     }
     

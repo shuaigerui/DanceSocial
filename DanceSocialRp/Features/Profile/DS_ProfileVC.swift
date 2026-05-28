@@ -13,6 +13,7 @@ class DS_ProfileVC: DS_BaseVC {
         static let headerHeight: CGFloat = 650
     }
 
+    private var posts: [DS_PostModel] = []
     private var feedItems: [DS_PostFeedItem] = []
 
     private let headerView = DS_ProfileHeaderView()
@@ -56,15 +57,8 @@ class DS_ProfileVC: DS_BaseVC {
 
         headerView.configure(with: user)
 
-        feedItems = user.posts.map { post in
-            DS_PostFeedItem(
-                avatarImageName: post.avatarUrl,
-                userName: post.userName,
-                content: post.content,
-                imagePath: post.isImage ? post.mediaUrl : nil,
-                videoPath: post.isVideo ? post.mediaUrl : nil
-            )
-        }
+        posts = user.posts
+        feedItems = posts.map(UserData.feedItem(for:))
         tableView.reloadData()
     }
 
@@ -122,6 +116,13 @@ extension DS_ProfileVC: UITableViewDataSource {
         cell.onCommentTapped = { [weak self] in
             guard let self else { return }
             DS_PostCommentSheetVC.present(from: self)
+        }
+        cell.onMoreTapped = { [weak self] in
+            guard let self, indexPath.row < self.posts.count else { return }
+            let post = self.posts[indexPath.row]
+            self.handlePostMoreTapped(post: post) { [weak self] in
+                self?.loadData()
+            }
         }
         return cell
     }

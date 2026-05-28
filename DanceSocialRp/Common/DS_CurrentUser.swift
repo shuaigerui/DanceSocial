@@ -19,6 +19,7 @@ final class DS_CurrentUser {
     private enum StorageKey {
         static let registeredUsers = "ds_registered_users"
         static let loggedInUserId = "ds_logged_in_user_id"
+        static let followByUserId = "ds_follow_by_user_id"
     }
 
     private(set) var user: DS_UserModel?
@@ -28,9 +29,11 @@ final class DS_CurrentUser {
     }
 
     private var registeredUsers: [DS_UserModel] = []
+    private var followByUserId: [String: Bool] = [:]
 
     private init() {
         loadRegisteredUsers()
+        loadFollowStates()
         restoreSessionIfNeeded()
     }
 
@@ -158,6 +161,7 @@ final class DS_CurrentUser {
 
         let postId = "p_\(current.userId)_\(UUID().uuidString.prefix(8))"
         let mediaUrl: String?
+        var videoCoverUrl: String?
 
         switch mediaType {
         case .image:
@@ -168,6 +172,7 @@ final class DS_CurrentUser {
                 return false
             }
             mediaUrl = path
+            videoCoverUrl = savePostVideoCover(forVideoAt: path, postId: postId)
         }
 
         let post = DS_PostModel(
@@ -178,7 +183,7 @@ final class DS_CurrentUser {
             content: trimmedContent,
             mediaType: mediaType,
             mediaUrl: mediaUrl,
-            videoCoverUrl: nil
+            videoCoverUrl: videoCoverUrl
         )
 
         let updatedUser = DS_UserModel(
@@ -192,6 +197,35 @@ final class DS_CurrentUser {
             isBlack: current.isBlack,
             isFollow: current.isFollow,
             posts: current.posts + [post],
+            createdLiveRooms: current.createdLiveRooms
+        )
+
+        configure(with: updatedUser, saveToRegisteredList: true)
+        return true
+    }
+
+    /// 删除当前用户的一条动态并同步到本地
+    @discardableResult
+    func deletePost(postId: String) -> Bool {
+        guard let current = user,
+              current.posts.contains(where: { $0.postId == postId }) else {
+            return false
+        }
+
+        let removedPosts = current.posts.filter { $0.postId == postId }
+        removedPosts.forEach(removePostMediaFiles(for:))
+
+        let updatedUser = DS_UserModel(
+            userId: current.userId,
+            account: current.account,
+            password: current.password,
+            userName: current.userName,
+            avatarUrl: current.avatarUrl,
+            coverUrl: current.coverUrl,
+            goldCoins: current.goldCoins,
+            isBlack: current.isBlack,
+            isFollow: current.isFollow,
+            posts: current.posts.filter { $0.postId != postId },
             createdLiveRooms: current.createdLiveRooms
         )
 
@@ -299,6 +333,67 @@ final class DS_CurrentUser {
         return true
     }
 
+    /// 按 userId 获取用户（优先本地已保存的注册/更新数据）
+    func resolvedUser(userId: String) -> DS_UserModel? {
+        let base: DS_UserModel?
+        if let registered = registeredUsers.first(where: { $0.userId == userId }) {
+            base = registered
+        } else {
+            base = UserData.user(userId: userId)
+        }
+        guard let base else { return nil }
+        return applyingStoredFollowState(to: base)
+    }
+
+    // MARK: - Follow
+
+    /// 切换关注状态并写入本地
+    @discardableResult
+    func toggleFollow(userId: String, isFollow: Bool) -> Bool {
+        let newValue = !isFollow
+        followByUserId[userId] = newValue
+        saveFollowStates()
+
+        if let registered = registeredUsers.first(where: { $0.userId == userId }) {
+            upsertRegisteredUser(user(registered, isFollow: newValue))
+        }
+        return newValue
+    }
+
+    private func applyingStoredFollowState(to user: DS_UserModel) -> DS_UserModel {
+        guard let isFollow = followByUserId[user.userId] else { return user }
+        guard user.isFollow != isFollow else { return user }
+        return self.user(user, isFollow: isFollow)
+    }
+
+    private func user(_ user: DS_UserModel, isFollow: Bool) -> DS_UserModel {
+        DS_UserModel(
+            userId: user.userId,
+            account: user.account,
+            password: user.password,
+            userName: user.userName,
+            avatarUrl: user.avatarUrl,
+            coverUrl: user.coverUrl,
+            goldCoins: user.goldCoins,
+            isBlack: user.isBlack,
+            isFollow: isFollow,
+            posts: user.posts,
+            createdLiveRooms: user.createdLiveRooms
+        )
+    }
+
+    private func saveFollowStates() {
+        UserDefaults.standard.set(followByUserId, forKey: StorageKey.followByUserId)
+    }
+
+    private func loadFollowStates() {
+        guard let stored = UserDefaults.standard.dictionary(forKey: StorageKey.followByUserId) as? [String: Bool] else {
+            followByUserId = [:]
+            return
+        }
+        followByUserId = stored
+    }
+
     // MARK: - Avatar file
 
     func avatarImage(for user: DS_UserModel) -> UIImage? {
@@ -346,6 +441,19 @@ final class DS_CurrentUser {
             return fileURL.path
         } catch {
             return nil
+        }
+    }
+
+    @discardableResult
+    private func savePostVideoCover(forVideoAt videoPath: String, postId: String) -> String? {
+        guard let image = DS_VideoThumbnailLoader.thumbnailImage(for: videoPath) else { return nil }
+        return savePostImage(image, postId: "\(postId)_cover")
+    }
+
+    private func removePostMediaFiles(for post: DS_PostModel) {
+        [post.mediaUrl, post.videoCoverUrl].forEach { path in
+            guard let path, path.hasPrefix("/") else { return }
+            try? FileManager.default.removeItem(atPath: path)
         }
     }
 

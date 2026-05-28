@@ -8,8 +8,11 @@
 import UIKit
 
 struct DS_HomeClipItem {
+    let userId: String?
     /// 视频资源路径，封面取首帧
     let videoPath: String?
+    /// 静态封面路径（优先于首帧生成）
+    let videoCoverPath: String?
     let avatarImageName: String?
     let title: String
 }
@@ -17,6 +20,8 @@ struct DS_HomeClipItem {
 final class DS_HomeClipCell: UICollectionViewCell {
 
     static let reuseIdentifier = "DS_HomeClipCell"
+
+    var onAvatarTapped: (() -> Void)?
 
     private enum Layout {
         static let cornerRadius: CGFloat = 10
@@ -61,6 +66,7 @@ final class DS_HomeClipCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
+        setupAvatarTap()
     }
 
     @available(*, unavailable)
@@ -87,6 +93,12 @@ final class DS_HomeClipCell: UICollectionViewCell {
         avatarImageView.image = UserData.image(for: item.avatarImageName)
         titleLabel.text = item.title
         playImageView.isHidden = item.videoPath == nil
+
+        if let coverPath = item.videoCoverPath,
+           let coverImage = UserData.image(for: coverPath) {
+            coverImageView.image = coverImage
+            return
+        }
 
         guard let videoPath = item.videoPath else { return }
 
@@ -124,5 +136,15 @@ final class DS_HomeClipCell: UICollectionViewCell {
             make.trailing.lessThanOrEqualToSuperview().inset(Layout.horizontalInset)
             make.centerY.equalTo(avatarImageView)
         }
+    }
+
+    private func setupAvatarTap() {
+        avatarImageView.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleAvatarTap))
+        avatarImageView.addGestureRecognizer(tap)
+    }
+
+    @objc private func handleAvatarTap() {
+        onAvatarTapped?()
     }
 }

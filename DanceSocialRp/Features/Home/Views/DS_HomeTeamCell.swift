@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_HomeTeamItem {
+    let hostUserId: String?
     let coverImageName: String?
     let avatarImageName: String?
     let title: String
@@ -16,6 +17,8 @@ struct DS_HomeTeamItem {
 final class DS_HomeTeamCell: UICollectionViewCell {
 
     static let reuseIdentifier = "DS_HomeTeamCell"
+
+    var onAvatarTapped: (() -> Void)?
 
     private enum Layout {
         static let cornerRadius: CGFloat = 10
@@ -59,6 +62,7 @@ final class DS_HomeTeamCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
+        setupAvatarTap()
     }
 
     @available(*, unavailable)
@@ -107,5 +111,15 @@ final class DS_HomeTeamCell: UICollectionViewCell {
             make.leading.trailing.equalToSuperview().inset(4)
             make.bottom.equalToSuperview().inset(8)
         }
+    }
+
+    private func setupAvatarTap() {
+        avatarImageView.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleAvatarTap))
+        avatarImageView.addGestureRecognizer(tap)
+    }
+
+    @objc private func handleAvatarTap() {
+        onAvatarTapped?()
     }
 }

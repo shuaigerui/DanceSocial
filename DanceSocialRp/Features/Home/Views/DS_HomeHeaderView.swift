@@ -10,6 +10,7 @@ import UIKit
 class DS_HomeHeaderView: UIView {
 
     var onAIBannerTapped: (() -> Void)?
+    var onTeamItemTapped: ((DS_HomeTeamItem) -> Void)?
 
     private enum Layout {
         static let teamCollectionHeight: CGFloat = 168
@@ -152,10 +153,19 @@ extension DS_HomeHeaderView: UICollectionViewDataSource {
         ) as? DS_HomeTeamCell else {
             return UICollectionViewCell()
         }
-        cell.configure(with: teamItems[indexPath.item])
+        let item = teamItems[indexPath.item]
+        cell.configure(with: item)
+        cell.onAvatarTapped = { [weak self] in
+            self?.onTeamItemTapped?(item)
+        }
         return cell
     }
 }
 
 extension DS_HomeHeaderView: UICollectionViewDelegate {
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard indexPath.item < teamItems.count else { return }
+        onTeamItemTapped?(teamItems[indexPath.item])
+    }
 }

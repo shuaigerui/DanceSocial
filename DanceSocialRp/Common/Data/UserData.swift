@@ -72,12 +72,114 @@ enum UserData {
         users.first { $0.userId == userId }
     }
 
+    /// 预设用户 + 本地注册/更新后的用户
+    static func resolvedUser(userId: String) -> DS_UserModel? {
+        DS_CurrentUser.shared.resolvedUser(userId: userId) ?? user(userId: userId)
+    }
+
+    /// 他人主页顶部封面（聊天室封面，不用头像）
+    static func personCoverPath(for user: DS_UserModel) -> String? {
+        if let cover = user.coverUrl, !cover.isEmpty {
+            return cover
+        }
+        return user.createdLiveRooms.first?.coverUrl
+    }
+
+    /// 预设 Bundle 视频对应的静态封面（home_01.mp4 → home_01_cover.jpg）
+    static func bundleVideoCoverPath(forVideoPath path: String?) -> String? {
+        guard let path, !path.isEmpty else { return nil }
+        let fileName = (path as NSString).lastPathComponent
+        guard fileName.hasSuffix(".mp4"), fileName.hasPrefix("home_") else { return nil }
+        let coverName = fileName.replacingOccurrences(of: ".mp4", with: "_cover.jpg")
+        return mediaPath(folder: .home, fileName: coverName)
+    }
+
+    static func bundleVideoCoverImage(forVideoPath path: String?) -> UIImage? {
+        image(for: bundleVideoCoverPath(forVideoPath: path))
+    }
+
+    static func resolvedVideoCoverPath(for post: DS_PostModel) -> String? {
+        guard post.isVideo else { return nil }
+        if let cover = post.videoCoverUrl, !cover.isEmpty {
+            return cover
+        }
+        return bundleVideoCoverPath(forVideoPath: post.mediaUrl)
+    }
+
+    static func feedItem(for post: DS_PostModel) -> DS_PostFeedItem {
+        DS_PostFeedItem(
+            postId: post.postId,
+            userId: post.userId,
+            avatarImageName: post.avatarUrl,
+            userName: post.userName,
+            content: post.content,
+            imagePath: post.isImage ? post.mediaUrl : nil,
+            videoPath: post.isVideo ? post.mediaUrl : nil,
+            videoCoverPath: resolvedVideoCoverPath(for: post)
+        )
+    }
+
+    static func feedItems(for user: DS_UserModel) -> [DS_PostFeedItem] {
+        user.posts.map(feedItem(for:))
+    }
+
     static func allPosts() -> [DS_PostModel] {
         users.flatMap(\.posts)
     }
 
     static func allLiveRooms() -> [DS_LiveModel] {
         users.flatMap(\.createdLiveRooms)
+    }
+
+    /// `Sources/Avatar` 下全部头像文件名
+    static let avatarFileNames: [String] = (1...24).map { String(format: "avatar_%02d.png", $0) }
+
+    /// 随机取若干不重复的头像路径
+    static func randomAvatarPaths(count: Int, excluding existingPaths: [String] = []) -> [String] {
+        guard count > 0 else { return [] }
+
+        var exclude = Set(existingPaths)
+        var pool = avatarFileNames
+            .map { mediaPath(folder: .avatar, fileName: $0) }
+            .filter { !exclude.contains($0) }
+
+        var result: [String] = []
+        var shuffled = pool.shuffled()
+
+        while result.count < count {
+            if shuffled.isEmpty {
+                pool = avatarFileNames
+                    .map { mediaPath(folder: .avatar, fileName: $0) }
+                    .filter { !exclude.contains($0) }
+                shuffled = pool.shuffled()
+                if shuffled.isEmpty { break }
+            }
+            let path = shuffled.removeFirst()
+            result.append(path)
+            exclude.insert(path)
+        }
+        return result
+    }
+
+    /// 随机成员昵称
+    static func randomMemberName() -> String {
+        DS_GroupRoomScripts.randomMemberNames.randomElement() ?? "Guest"
+    }
+
+    /// 聊天室列表 3 个重叠头像：房主 + 随机成员头像
+    static func liveRoomDisplayAvatarPaths(
+        hostAvatarUrl: String?,
+        memberAvatarUrls: [String] = []
+    ) -> [String] {
+        var paths: [String] = []
+        if let host = hostAvatarUrl {
+            paths.append(host)
+        } else if let first = memberAvatarUrls.first {
+            paths.append(first)
+        }
+        let fillers = randomAvatarPaths(count: max(0, 3 - paths.count), excluding: paths)
+        paths.append(contentsOf: fillers)
+        return Array(paths.prefix(3))
     }
 
     // MARK: - Local media paths
@@ -158,6 +260,10 @@ enum UserData {
         let avatarPath = mediaPath(folder: .avatar, fileName: avatarFile)
         let coverPath = mediaPath(folder: .chatRoom, fileName: chatRoomFile)
         let videoPath = mediaPath(folder: .home, fileName: videoFile)
+        let videoCoverPath = mediaPath(
+            folder: .home,
+            fileName: videoFile.replacingOccurrences(of: ".mp4", with: "_cover.jpg")
+        )
         let imagePath = mediaPath(folder: .post, fileName: imageFile)
 
         let videoPost = DS_PostModel(
@@ -168,7 +274,7 @@ enum UserData {
             content: "Keep your promise to a winter snowfall and encounter freedom on the ski slopes.",
             mediaType: .video,
             mediaUrl: videoPath,
-            videoCoverUrl: nil
+            videoCoverUrl: videoCoverPath
         )
 
         let imagePost = DS_PostModel(

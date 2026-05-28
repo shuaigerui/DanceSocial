@@ -8,54 +8,59 @@
 import UIKit
 
 struct DS_PersonHeaderInfo {
+    let userId: String
     let coverImageName: String?
     let avatarImageName: String?
     let userName: String
     var isFollowing: Bool
 
     static let preview = DS_PersonHeaderInfo(
+        userId: "u_001",
         coverImageName: "login_welcomeBg",
         avatarImageName: "login_pic",
         userName: "Marceline",
         isFollowing: false
     )
+
+    static func from(user: DS_UserModel) -> DS_PersonHeaderInfo {
+        DS_PersonHeaderInfo(
+            userId: user.userId,
+            coverImageName: UserData.personCoverPath(for: user),
+            avatarImageName: user.avatarUrl,
+            userName: user.userName,
+            isFollowing: user.isFollow
+        )
+    }
 }
 
 final class DS_PersonHeaderView: UIView {
 
     private enum Layout {
         static let horizontalInset: CGFloat = 16
-        static let coverHeight: CGFloat = 200
+        static let coverHeight: CGFloat = 470
         static let coverBottomCornerRadius: CGFloat = 24
-        static let avatarSize: CGFloat = 72
+        static let avatarSize: CGFloat = 112
         static let avatarBorderWidth: CGFloat = 2
-        static let avatarOverlap: CGFloat = 36
-        static let chatWidth: CGFloat = 56
-        static let chatAspect: CGFloat = 168.0 / 225.0
-        static let followAspect: CGFloat = 192.0 / 1029.0
-        static let nameTopSpacing: CGFloat = 12
-        static let followTopSpacing: CGFloat = 16
-        static let commentTopSpacing: CGFloat = 20
+        static let backButtonSize: CGFloat = 44
+        static let backTopExtraInset: CGFloat = 8
     }
 
+    var onBackTapped: (() -> Void)?
     var onChatTapped: (() -> Void)?
-    var onFollowTapped: (() -> Void)?
 
+    private var targetUserId: String?
     private var isFollowing = false
-
-    private let coverContainerView: UIView = {
-        let view = UIView()
-        view.clipsToBounds = true
-        view.layer.cornerRadius = Layout.coverBottomCornerRadius
-        view.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
-        return view
-    }()
+    private var commentTopToFollowConstraint: Constraint?
+    private var commentTopToNameConstraint: Constraint?
 
     private let coverImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.backgroundColor = UIColor.hex("#2C2C2E")
+        imageView.layer.cornerRadius = 200
+        imageView.layer.maskedCorners = [.layerMaxXMaxYCorner]
+        imageView.layer.masksToBounds = true
         return imageView
     }()
 
@@ -70,6 +75,13 @@ final class DS_PersonHeaderView: UIView {
         return imageView
     }()
 
+    private lazy var backButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "common_back"), for: .normal)
+        button.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
+        return button
+    }()
+
     private lazy var chatButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(UIImage(named: "person_chat"), for: .normal)
@@ -80,14 +92,13 @@ final class DS_PersonHeaderView: UIView {
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.textColor = .white
-        label.font = .systemFont(ofSize: 18, weight: .semibold)
+        label.font = .systemFont(ofSize: 20, weight: .semibold)
         label.textAlignment = .center
         return label
     }()
 
     private lazy var followButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapFollow), for: .touchUpInside)
         return button
     }()
@@ -104,7 +115,6 @@ final class DS_PersonHeaderView: UIView {
         super.init(frame: frame)
         backgroundColor = .black
         setupUI()
-        configure(with: .preview)
     }
 
     @available(*, unavailable)
@@ -112,22 +122,22 @@ final class DS_PersonHeaderView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(with info: DS_PersonHeaderInfo) {
+    func configure(with info: DS_PersonHeaderInfo, showsFollowAndChat: Bool = true) {
+        targetUserId = info.userId
         nameLabel.text = info.userName
         isFollowing = info.isFollowing
         updateFollowButton()
+        setShowsFollowAndChat(showsFollowAndChat)
 
-        if let coverImageName = info.coverImageName {
-            coverImageView.image = UIImage(named: coverImageName)
-        } else {
-            coverImageView.image = nil
-        }
+        coverImageView.image = UserData.image(for: info.avatarImageName)
+        avatarImageView.image = UserData.image(for: info.avatarImageName)
+    }
 
-        if let avatarImageName = info.avatarImageName {
-            avatarImageView.image = UIImage(named: avatarImageName)
-        } else {
-            avatarImageView.image = nil
-        }
+    func setShowsFollowAndChat(_ shows: Bool) {
+        chatButton.isHidden = !shows
+        followButton.isHidden = !shows
+        commentTopToFollowConstraint?.isActive = shows
+        commentTopToNameConstraint?.isActive = !shows
     }
 
     func updateFollowState(_ following: Bool) {
@@ -141,54 +151,72 @@ final class DS_PersonHeaderView: UIView {
     }
 
     private func setupUI() {
-        addSubview(coverContainerView)
-        coverContainerView.addSubview(coverImageView)
+        addSubview(coverImageView)
         addSubview(avatarImageView)
+        addSubview(backButton)
         addSubview(chatButton)
         addSubview(nameLabel)
         addSubview(followButton)
         addSubview(commentLabel)
 
-        coverContainerView.snp.makeConstraints { make in
+        coverImageView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
             make.height.equalTo(Layout.coverHeight)
         }
 
-        coverImageView.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+        backButton.snp.makeConstraints { make in
+            make.leading.equalToSuperview().inset(Layout.horizontalInset)
+            make.top.equalToSuperview().offset(Self.backButtonTopOffset)
+            make.width.height.equalTo(Layout.backButtonSize)
         }
 
         avatarImageView.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
-            make.top.equalTo(coverContainerView.snp.bottom).offset(-Layout.avatarOverlap)
+            make.bottom.equalTo(coverImageView.snp.bottom).offset(-14)
             make.width.height.equalTo(Layout.avatarSize)
         }
 
         chatButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.centerY.equalTo(avatarImageView)
-            make.width.equalTo(Layout.chatWidth)
-            make.height.equalTo(chatButton.snp.width).multipliedBy(Layout.chatAspect)
+            make.trailing.equalToSuperview()
+            make.bottom.equalTo(avatarImageView)
+            make.width.equalTo(75)
+            make.height.equalTo(55)
         }
 
         nameLabel.snp.makeConstraints { make in
-            make.top.equalTo(avatarImageView.snp.bottom).offset(Layout.nameTopSpacing)
+            make.top.equalTo(avatarImageView.snp.bottom).offset(14)
             make.centerX.equalToSuperview()
             make.leading.greaterThanOrEqualToSuperview().inset(Layout.horizontalInset)
             make.trailing.lessThanOrEqualToSuperview().inset(Layout.horizontalInset)
         }
 
         followButton.snp.makeConstraints { make in
-            make.top.equalTo(nameLabel.snp.bottom).offset(Layout.followTopSpacing)
+            make.top.equalTo(nameLabel.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.height.equalTo(followButton.snp.width).multipliedBy(Layout.followAspect)
+            make.height.equalTo(64)
         }
 
         commentLabel.snp.makeConstraints { make in
-            make.top.equalTo(followButton.snp.bottom).offset(Layout.commentTopSpacing)
+            commentTopToFollowConstraint = make.top.equalTo(followButton.snp.bottom).offset(24).constraint
+            commentTopToNameConstraint = make.top.equalTo(nameLabel.snp.bottom).offset(24).constraint
             make.leading.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.equalToSuperview()
+            make.bottom.equalToSuperview().offset(-16)
         }
+        commentTopToNameConstraint?.deactivate()
+
+        bringSubviewToFront(backButton)
+    }
+
+    private static var backButtonTopOffset: CGFloat {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        return (window?.safeAreaInsets.top ?? 47) + Layout.backTopExtraInset
+    }
+
+    @objc private func didTapBack() {
+        onBackTapped?()
     }
 
     @objc private func didTapChat() {
@@ -196,8 +224,8 @@ final class DS_PersonHeaderView: UIView {
     }
 
     @objc private func didTapFollow() {
-        isFollowing.toggle()
+        guard let userId = targetUserId, !userId.isEmpty else { return }
+        isFollowing = DS_CurrentUser.shared.toggleFollow(userId: userId, isFollow: isFollowing)
         updateFollowButton()
-        onFollowTapped?()
     }
 }

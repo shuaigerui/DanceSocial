@@ -8,6 +8,8 @@
 import UIKit
 
 struct DS_PostFeedItem {
+    let postId: String?
+    let userId: String?
     let avatarImageName: String?
     let userName: String
     let content: String
@@ -15,13 +17,17 @@ struct DS_PostFeedItem {
     let imagePath: String?
     /// 视频动态资源路径（封面取首帧）
     let videoPath: String?
+    /// 已保存的视频封面图路径（优先展示）
+    let videoCoverPath: String?
 }
 
 final class DS_PostFeedCell: UITableViewCell {
 
     static let reuseIdentifier = "DS_PostFeedCell"
 
+    var onAvatarTapped: (() -> Void)?
     var onCommentTapped: (() -> Void)?
+    var onMoreTapped: (() -> Void)?
 
     private enum Layout {
         static let cardCornerRadius: CGFloat = 14
@@ -68,6 +74,7 @@ final class DS_PostFeedCell: UITableViewCell {
     private lazy var moreButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(UIImage(named: "post_more"), for: .normal)
+        button.addTarget(self, action: #selector(didTapMore), for: .touchUpInside)
         return button
     }()
 
@@ -97,6 +104,7 @@ final class DS_PostFeedCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
+        setupAvatarTap()
     }
 
     private var loadingVideoPath: String?
@@ -127,6 +135,9 @@ final class DS_PostFeedCell: UITableViewCell {
 
         if let imagePath = item.imagePath {
             mediaImageView.image = UserData.image(for: imagePath)
+        } else if let coverPath = item.videoCoverPath,
+                  let coverImage = UserData.image(for: coverPath) {
+            mediaImageView.image = coverImage
         } else if let videoPath = item.videoPath {
             loadingVideoPath = videoPath
             DS_VideoThumbnailLoader.thumbnail(for: videoPath) { [weak self] image in
@@ -196,6 +207,20 @@ final class DS_PostFeedCell: UITableViewCell {
             make.trailing.equalTo(mediaImageView).inset(10)
             make.size.equalTo(Layout.playButtonSize)
         }
+    }
+
+    private func setupAvatarTap() {
+        avatarImageView.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(didTapAvatar))
+        avatarImageView.addGestureRecognizer(tap)
+    }
+
+    @objc private func didTapAvatar() {
+        onAvatarTapped?()
+    }
+
+    @objc private func didTapMore() {
+        onMoreTapped?()
     }
 
     @objc private func didTapComment() {

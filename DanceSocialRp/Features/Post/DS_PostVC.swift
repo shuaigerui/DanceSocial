@@ -13,6 +13,7 @@ class DS_PostVC: DS_BaseVC {
         static let headerHeight: CGFloat = 255
     }
 
+    private var posts: [DS_PostModel] = []
     private var feedItems: [DS_PostFeedItem] = []
 
     private let headerView = DS_PostHeaderView()
@@ -57,15 +58,8 @@ class DS_PostVC: DS_BaseVC {
             posts.insert(contentsOf: user.posts, at: 0)
         }
 
-        feedItems = posts.map { post in
-            DS_PostFeedItem(
-                avatarImageName: post.avatarUrl,
-                userName: post.userName,
-                content: post.content,
-                imagePath: post.isImage ? post.mediaUrl : nil,
-                videoPath: post.isVideo ? post.mediaUrl : nil
-            )
-        }
+        self.posts = posts
+        feedItems = posts.map(UserData.feedItem(for:))
         tableView.reloadData()
     }
     
@@ -113,13 +107,37 @@ extension DS_PostVC: UITableViewDataSource {
         }
         let item = feedItems[indexPath.row]
         cell.configure(with: item)
+        cell.onAvatarTapped = { [weak self] in
+            guard let self, indexPath.row < self.posts.count else { return }
+            let userId = self.posts[indexPath.row].userId
+            self.navigationController?.pushViewController(DS_PersonVC(userId: userId), animated: true)
+        }
         cell.onCommentTapped = { [weak self] in
             guard let self else { return }
             DS_PostCommentSheetVC.present(from: self)
+        }
+        cell.onMoreTapped = { [weak self] in
+            guard let self, indexPath.row < self.posts.count else { return }
+            let post = self.posts[indexPath.row]
+            self.handlePostMoreTapped(post: post) { [weak self] in
+                self?.loadData()
+            }
         }
         return cell
     }
 }
 
 extension DS_PostVC: UITableViewDelegate {
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard indexPath.row < posts.count else { return }
+
+        let post = posts[indexPath.row]
+        if post.isVideo {
+            navigationController?.pushViewController(DS_VideoVC(post: post), animated: true)
+        } else if post.isImage {
+            navigationController?.pushViewController(DS_ImageVC(post: post), animated: true)
+        }
+    }
 }
