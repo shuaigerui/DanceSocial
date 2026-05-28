@@ -10,7 +10,7 @@ import UIKit
 class DS_ProfileVC: DS_BaseVC {
 
     private enum Layout {
-        static let headerHeight: CGFloat = 600
+        static let headerHeight: CGFloat = 650
     }
 
     private let feedItems: [DS_PostFeedItem] = [
@@ -50,6 +50,8 @@ class DS_ProfileVC: DS_BaseVC {
         super.viewDidLoad()
         setupUI()
         setupTableHeader()
+        
+        
     }
 
     override func viewDidLayoutSubviews() {
@@ -106,7 +108,12 @@ extension DS_ProfileVC: UITableViewDataSource {
         ) as? DS_PostFeedCell else {
             return UITableViewCell()
         }
-        cell.configure(with: feedItems[indexPath.row])
+        let item = feedItems[indexPath.row]
+        cell.configure(with: item)
+        cell.onCommentTapped = { [weak self] in
+            guard let self else { return }
+            DS_PostCommentSheetVC.present(from: self)
+        }
         return cell
     }
 }

@@ -10,6 +10,7 @@ import UIKit
 class DS_LiveHeaderView: UIView {
 
     var onTabSelected: ((DS_LiveRoomListType) -> Void)?
+    var onCreateTapped: (() -> Void)?
 
     private(set) var selectedTab: DS_LiveRoomListType = .recommend
 
@@ -67,6 +68,11 @@ class DS_LiveHeaderView: UIView {
 
         recommendButton.addTarget(self, action: #selector(didTapRecommend), for: .touchUpInside)
         creationButton.addTarget(self, action: #selector(didTapCreation), for: .touchUpInside)
+        releaseButton.addTarget(self, action: #selector(didTapCreate), for: .touchUpInside)
+    }
+
+    @objc private func didTapCreate() {
+        onCreateTapped?()
     }
 
     @objc private func didTapRecommend() {
@@ -93,7 +99,7 @@ class DS_LiveHeaderView: UIView {
         return imageView
     }()
 
-    private let releaseButton: UIButton = {
+    private lazy var releaseButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "live_create"), for: .normal)
         return button

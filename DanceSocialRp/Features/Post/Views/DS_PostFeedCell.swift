@@ -18,6 +18,8 @@ final class DS_PostFeedCell: UITableViewCell {
 
     static let reuseIdentifier = "DS_PostFeedCell"
 
+    var onCommentTapped: (() -> Void)?
+
     private enum Layout {
         static let cardCornerRadius: CGFloat = 14
         static let cardHorizontalInset: CGFloat = 16
@@ -56,6 +58,7 @@ final class DS_PostFeedCell: UITableViewCell {
     private lazy var commentButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setImage(UIImage(named: "post_commit"), for: .normal)
+        button.addTarget(self, action: #selector(didTapComment), for: .touchUpInside)
         return button
     }()
 
@@ -166,5 +169,9 @@ final class DS_PostFeedCell: UITableViewCell {
             make.trailing.equalTo(mediaImageView).inset(10)
             make.size.equalTo(Layout.playButtonSize)
         }
+    }
+
+    @objc private func didTapComment() {
+        onCommentTapped?()
     }
 }

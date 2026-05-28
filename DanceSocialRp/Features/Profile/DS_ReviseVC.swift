@@ -30,10 +30,8 @@ class DS_ReviseVC: DS_SecondaryVC {
     }()
 
     private lazy var backButton: UIButton = {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        button.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        button.tintColor = .white
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "common_back"), for: .normal)
         button.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
         return button
     }()
@@ -47,15 +45,13 @@ class DS_ReviseVC: DS_SecondaryVC {
         return label
     }()
 
-    private let avatarContainerView = UIView()
-
     private let avatarImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "login_pic"))
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.backgroundColor = UIColor.hex("#555555")
-        imageView.layer.cornerRadius = Layout.avatarCornerRadius
-        imageView.layer.borderWidth = Layout.avatarBorderWidth
+        imageView.layer.cornerRadius = 88
+        imageView.layer.borderWidth = 2
         imageView.layer.borderColor = UIColor.white.cgColor
         imageView.isUserInteractionEnabled = true
         return imageView
@@ -81,7 +77,7 @@ class DS_ReviseVC: DS_SecondaryVC {
         textField.font = .systemFont(ofSize: 16, weight: .regular)
         textField.textAlignment = .center
         textField.backgroundColor = .white
-        textField.layer.cornerRadius = Layout.fieldHeight / 2
+        textField.layer.cornerRadius = 24
         textField.clipsToBounds = true
         textField.autocapitalizationType = .words
         textField.autocorrectionType = .no
@@ -94,7 +90,6 @@ class DS_ReviseVC: DS_SecondaryVC {
     private lazy var reviseButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "revise_button"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapRevise), for: .touchUpInside)
         return button
     }()
@@ -109,15 +104,13 @@ class DS_ReviseVC: DS_SecondaryVC {
         view.backgroundColor = .black
 
         view.addSubview(navBarView)
-        view.addSubview(avatarContainerView)
+        view.addSubview(avatarImageView)
+        view.addSubview(avatarEditButton)
         view.addSubview(nameTextField)
         view.addSubview(reviseButton)
 
         navBarView.addSubview(backButton)
         navBarView.addSubview(titleLabel)
-
-        avatarContainerView.addSubview(avatarImageView)
-        avatarContainerView.addSubview(avatarEditButton)
 
         navBarView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
@@ -135,16 +128,10 @@ class DS_ReviseVC: DS_SecondaryVC {
             make.center.equalToSuperview()
         }
 
-        avatarContainerView.snp.makeConstraints { make in
-            make.top.equalTo(navBarView.snp.bottom).offset(48)
-            make.centerX.equalToSuperview()
-            make.width.equalTo(Layout.avatarSize + Layout.editButtonSize / 2)
-            make.height.equalTo(Layout.avatarSize + Layout.editButtonSize / 2)
-        }
-
         avatarImageView.snp.makeConstraints { make in
-            make.top.leading.equalToSuperview()
-            make.width.height.equalTo(Layout.avatarSize)
+            make.centerX.equalToSuperview()
+            make.top.equalTo(navBarView.snp.bottom).offset(15)
+            make.width.height.equalTo(265)
         }
 
         avatarEditButton.snp.makeConstraints { make in
@@ -153,15 +140,17 @@ class DS_ReviseVC: DS_SecondaryVC {
         }
 
         nameTextField.snp.makeConstraints { make in
-            make.top.equalTo(avatarContainerView.snp.bottom).offset(40)
-            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.height.equalTo(Layout.fieldHeight)
+            make.top.equalTo(avatarImageView.snp.bottom).offset(66)
+            make.centerX.equalToSuperview()
+            make.height.equalTo(58)
+            make.width.equalTo(240)
         }
 
         reviseButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).inset(32)
-            make.height.equalTo(reviseButton.snp.width).multipliedBy(Layout.buttonAspect)
+            make.centerX.equalToSuperview()
+            make.top.equalTo(nameTextField.snp.bottom).offset(40)
+            make.height.equalTo(64)
+            make.width.equalTo(267)
         }
     }
 

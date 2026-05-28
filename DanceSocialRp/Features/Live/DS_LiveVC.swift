@@ -94,6 +94,10 @@ class DS_LiveVC: DS_BaseVC {
         headerView.onTabSelected = { [weak self] tab in
             self?.switchTab(to: tab)
         }
+
+        headerView.onCreateTapped = { [weak self] in
+            self?.navigationController?.pushViewController(DS_CreateLiveVC(), animated: true)
+        }
     }
 
     private func switchTab(to tab: DS_LiveRoomListType) {

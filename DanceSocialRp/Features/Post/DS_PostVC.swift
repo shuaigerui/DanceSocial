@@ -68,6 +68,10 @@ class DS_PostVC: DS_BaseVC {
         tableView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
+
+        headerView.onReleaseTapped = { [weak self] in
+            self?.navigationController?.pushViewController(DS_PushPostVC(), animated: true)
+        }
     }
 
     private func setupTableHeader() {
@@ -100,7 +104,12 @@ extension DS_PostVC: UITableViewDataSource {
         ) as? DS_PostFeedCell else {
             return UITableViewCell()
         }
-        cell.configure(with: feedItems[indexPath.row])
+        let item = feedItems[indexPath.row]
+        cell.configure(with: item)
+        cell.onCommentTapped = { [weak self] in
+            guard let self else { return }
+            DS_PostCommentSheetVC.present(from: self)
+        }
         return cell
     }
 }

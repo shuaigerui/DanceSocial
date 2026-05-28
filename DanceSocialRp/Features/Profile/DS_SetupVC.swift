@@ -32,10 +32,8 @@ class DS_SetupVC: DS_SecondaryVC {
     }()
 
     private lazy var backButton: UIButton = {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        button.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        button.tintColor = .white
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "common_back"), for: .normal)
         button.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
         return button
     }()
@@ -69,7 +67,6 @@ class DS_SetupVC: DS_SecondaryVC {
     private lazy var confirmButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "shop_confirm"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapConfirm), for: .touchUpInside)
         return button
     }()
@@ -109,9 +106,10 @@ class DS_SetupVC: DS_SecondaryVC {
         }
 
         confirmButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).inset(32)
-            make.height.equalTo(confirmButton.snp.width).multipliedBy(Layout.confirmAspect)
+            make.centerX.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-45)
+            make.height.equalTo(64)
+            make.width.equalTo(267)
         }
 
         optionsContainerView.snp.makeConstraints { make in
@@ -128,7 +126,7 @@ class DS_SetupVC: DS_SecondaryVC {
     private func setupOptionRowConstraints() {
         optionsStackView.arrangedSubviews.forEach { view in
             view.snp.makeConstraints { make in
-                make.height.equalTo(view.snp.width).multipliedBy(Layout.optionAspect)
+                make.height.equalTo(67)
             }
         }
     }

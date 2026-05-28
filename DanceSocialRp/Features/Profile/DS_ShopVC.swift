@@ -11,7 +11,7 @@ class DS_ShopVC: DS_SecondaryVC {
 
     private enum Layout {
         static let horizontalInset: CGFloat = 16
-        static let itemSpacing: CGFloat = 12
+        static let itemSpacing: CGFloat = 7
         static let remainAspect: CGFloat = 276.0 / 1032.0
         static let packageAspect: CGFloat = 240.0 / 504.0
         static let confirmAspect: CGFloat = 192.0 / 801.0
@@ -31,10 +31,8 @@ class DS_ShopVC: DS_SecondaryVC {
     }()
 
     private lazy var backButton: UIButton = {
-        let button = UIButton(type: .system)
-        let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
-        button.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
-        button.tintColor = .white
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(named: "common_back"), for: .normal)
         button.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
         return button
     }()
@@ -50,7 +48,7 @@ class DS_ShopVC: DS_SecondaryVC {
 
     private let remainImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "shop_remain"))
-        imageView.contentMode = .scaleToFill
+        imageView.contentMode = .scaleAspectFill
         return imageView
     }()
 
@@ -58,7 +56,7 @@ class DS_ShopVC: DS_SecondaryVC {
         let label = UILabel()
         label.text = "It can be used to post your moments and frustrations."
         label.textColor = .white
-        label.font = .systemFont(ofSize: 14, weight: .regular)
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
         label.textAlignment = .center
         label.numberOfLines = 0
         return label
@@ -66,8 +64,8 @@ class DS_ShopVC: DS_SecondaryVC {
 
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = Layout.itemSpacing
-        layout.minimumLineSpacing = Layout.itemSpacing
+        layout.minimumInteritemSpacing = 7
+        layout.minimumLineSpacing = 14
 
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .black
@@ -122,24 +120,24 @@ class DS_ShopVC: DS_SecondaryVC {
         }
 
         remainImageView.snp.makeConstraints { make in
-            make.top.equalTo(navBarView.snp.bottom).offset(8)
+            make.top.equalTo(navBarView.snp.bottom).offset(10)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.height.equalTo(remainImageView.snp.width).multipliedBy(Layout.remainAspect)
         }
 
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(remainImageView.snp.bottom).offset(16)
-            make.leading.trailing.equalToSuperview().inset(32)
+            make.leading.trailing.equalToSuperview().inset(25)
         }
 
         confirmButton.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).inset(8)
-            make.height.equalTo(confirmButton.snp.width).multipliedBy(Layout.confirmAspect)
+            make.centerX.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-30)
+            make.height.equalTo(64)
+            make.width.equalTo(267)
         }
 
         collectionView.snp.makeConstraints { make in
-            make.top.equalTo(descriptionLabel.snp.bottom).offset(20)
+            make.top.equalTo(descriptionLabel.snp.bottom).offset(15)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
             make.bottom.equalTo(confirmButton.snp.top).offset(-16)
         }
@@ -187,8 +185,7 @@ extension DS_ShopVC: UICollectionViewDelegateFlowLayout {
     ) -> CGSize {
         let totalSpacing = Layout.itemSpacing
         let width = (collectionView.bounds.width - totalSpacing) / 2
-        let height = width * Layout.packageAspect
-        return CGSize(width: width, height: height)
+        return CGSize(width: width, height: 80)
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

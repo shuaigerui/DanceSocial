@@ -23,16 +23,6 @@ final class DS_ProfileHeaderView: UIView {
 
     private enum Layout {
         static let horizontalInset: CGFloat = 16
-        static let coverHeight: CGFloat = 200
-        static let coverBottomCornerRadius: CGFloat = 24
-        static let avatarSize: CGFloat = 72
-        static let avatarBorderWidth: CGFloat = 3
-        static let avatarOverlap: CGFloat = 36
-        static let profileTopSpacing: CGFloat = 12
-        static let buttonSpacing: CGFloat = 12
-        static let coinAspect: CGFloat = 240.0 / 1029.0
-        static let actionAspect: CGFloat = 240.0 / 504.0
-        static let releaseTopSpacing: CGFloat = 20
     }
 
     var onCoinShopTapped: (() -> Void)?
@@ -42,7 +32,7 @@ final class DS_ProfileHeaderView: UIView {
     private let coverContainerView: UIView = {
         let view = UIView()
         view.clipsToBounds = true
-        view.layer.cornerRadius = Layout.coverBottomCornerRadius
+        view.layer.cornerRadius = 44
         view.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         return view
     }()
@@ -51,7 +41,6 @@ final class DS_ProfileHeaderView: UIView {
         let imageView = UIImageView()
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
-        imageView.backgroundColor = UIColor.hex("#2C2C2E")
         return imageView
     }()
 
@@ -60,8 +49,8 @@ final class DS_ProfileHeaderView: UIView {
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
         imageView.backgroundColor = UIColor.hex("#3A3A3C")
-        imageView.layer.cornerRadius = Layout.avatarSize / 2
-        imageView.layer.borderWidth = Layout.avatarBorderWidth
+        imageView.layer.cornerRadius = 56
+        imageView.layer.borderWidth = 2
         imageView.layer.borderColor = UIColor.white.cgColor
         return imageView
     }()
@@ -69,14 +58,13 @@ final class DS_ProfileHeaderView: UIView {
     private let nameLabel: UILabel = {
         let label = UILabel()
         label.textColor = .white
-        label.font = .systemFont(ofSize: 22, weight: .semibold)
+        label.font = .systemFont(ofSize: 20, weight: .semibold)
         return label
     }()
 
     private lazy var coinShopButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "profile_coin"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapCoinShop), for: .touchUpInside)
         return button
     }()
@@ -84,7 +72,6 @@ final class DS_ProfileHeaderView: UIView {
     private lazy var reviseButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "profile_revise"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapRevise), for: .touchUpInside)
         return button
     }()
@@ -92,7 +79,6 @@ final class DS_ProfileHeaderView: UIView {
     private lazy var setupButton: UIButton = {
         let button = UIButton(type: .custom)
         button.setBackgroundImage(UIImage(named: "profile_setup"), for: .normal)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapSetup), for: .touchUpInside)
         return button
     }()
@@ -101,7 +87,7 @@ final class DS_ProfileHeaderView: UIView {
         let label = UILabel()
         label.text = "release"
         label.textColor = .white
-        label.font = UIFont.italicSystemFont(ofSize: 18)
+        label.font = UIFont.italicSystemFont(ofSize: 20)
         return label
     }()
 
@@ -145,7 +131,7 @@ final class DS_ProfileHeaderView: UIView {
 
         coverContainerView.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(Layout.coverHeight)
+            make.height.equalTo(350)
         }
 
         coverImageView.snp.makeConstraints { make in
@@ -154,40 +140,36 @@ final class DS_ProfileHeaderView: UIView {
 
         avatarImageView.snp.makeConstraints { make in
             make.leading.equalToSuperview().inset(Layout.horizontalInset)
-            make.top.equalTo(coverContainerView.snp.bottom).offset(-Layout.avatarOverlap)
-            make.width.height.equalTo(Layout.avatarSize)
+            make.top.equalTo(coverContainerView.snp.bottom).offset(-56)
+            make.width.height.equalTo(112)
         }
 
         nameLabel.snp.makeConstraints { make in
-            make.leading.equalTo(avatarImageView.snp.trailing).offset(14)
+            make.leading.equalTo(avatarImageView.snp.trailing).offset(9)
             make.trailing.lessThanOrEqualToSuperview().inset(Layout.horizontalInset)
-            make.centerY.equalTo(avatarImageView)
+            make.top.equalTo(coverContainerView.snp.bottom)
         }
 
         coinShopButton.snp.makeConstraints { make in
-            make.top.equalTo(avatarImageView.snp.bottom).offset(Layout.profileTopSpacing)
+            make.top.equalTo(avatarImageView.snp.bottom).offset(14)
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.height.equalTo(coinShopButton.snp.width).multipliedBy(Layout.coinAspect)
         }
 
         reviseButton.snp.makeConstraints { make in
-            make.top.equalTo(coinShopButton.snp.bottom).offset(Layout.buttonSpacing)
+            make.top.equalTo(coinShopButton.snp.bottom).offset(14)
             make.leading.equalToSuperview().inset(Layout.horizontalInset)
-            make.trailing.equalTo(setupButton.snp.leading).offset(-Layout.buttonSpacing)
-            make.height.equalTo(reviseButton.snp.width).multipliedBy(Layout.actionAspect)
-            make.width.equalTo(setupButton)
+            make.trailing.equalTo(setupButton.snp.leading).offset(-7)
+            make.height.equalTo(80)
         }
 
         setupButton.snp.makeConstraints { make in
-            make.top.equalTo(reviseButton)
+            make.centerY.width.height.equalTo(reviseButton)
             make.trailing.equalToSuperview().inset(Layout.horizontalInset)
-            make.height.equalTo(setupButton.snp.width).multipliedBy(Layout.actionAspect)
         }
 
         releaseLabel.snp.makeConstraints { make in
-            make.top.equalTo(reviseButton.snp.bottom).offset(Layout.releaseTopSpacing)
+            make.top.equalTo(reviseButton.snp.bottom).offset(16)
             make.leading.equalToSuperview().inset(Layout.horizontalInset)
-            make.bottom.equalToSuperview()
         }
     }
 

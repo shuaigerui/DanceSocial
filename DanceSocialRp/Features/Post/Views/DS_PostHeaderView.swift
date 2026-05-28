@@ -9,6 +9,8 @@ import UIKit
 
 class DS_PostHeaderView: UIView {
 
+    var onReleaseTapped: (() -> Void)?
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
@@ -42,11 +44,16 @@ class DS_PostHeaderView: UIView {
         return imageView
     }()
     
-    private let releaseButton: UIButton = {
-        let v = UIButton(type: .custom)
-        v.setBackgroundImage(UIImage(named: "post_release"), for: .normal)
-        return v
+    private lazy var releaseButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setBackgroundImage(UIImage(named: "post_release"), for: .normal)
+        button.addTarget(self, action: #selector(didTapRelease), for: .touchUpInside)
+        return button
     }()
+
+    @objc private func didTapRelease() {
+        onReleaseTapped?()
+    }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
