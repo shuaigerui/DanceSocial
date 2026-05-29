@@ -267,6 +267,12 @@ class DS_PushPostVC: DS_SecondaryVC {
             return
         }
 
+        let balance = DS_CurrentUser.shared.user?.goldCoins ?? 0
+        if balance < DS_CurrentUser.postPublishGoldCost {
+            view.makeToast("Posting a moment costs 10 gold coins. Please recharge first.")
+            return
+        }
+
         let mediaType: DS_PostMediaType
         let image: UIImage?
         let videoURL: URL?
@@ -308,10 +314,20 @@ class DS_PushPostVC: DS_SecondaryVC {
                     return
                 }
 
-                self.view.makeToast("Post created successfully")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.navigationController?.popViewController(animated: true)
-                }
+                DS_NetworkTool.shared.postDefaultRequest { result in
+                    switch result {
+                    case .success(_):
+                        self.view.makeToast("Post created successfully")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            self.navigationController?.popViewController(animated: true)
+                        }
+                    case .failure(_):
+                        self.view.makeToast("Post created successfully")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            self.navigationController?.popViewController(animated: true)
+                        }
+                    }
+                }                
             }
         }
     }

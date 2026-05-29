@@ -11,12 +11,6 @@ struct DS_ProfileHeaderInfo {
     let coverImageName: String?
     let avatarImageName: String?
     let userName: String
-
-    static let preview = DS_ProfileHeaderInfo(
-        coverImageName: "login_welcomeBg",
-        avatarImageName: "login_pic",
-        userName: "Marceline"
-    )
 }
 
 final class DS_ProfileHeaderView: UIView {
@@ -95,7 +89,6 @@ final class DS_ProfileHeaderView: UIView {
         super.init(frame: frame)
         backgroundColor = .black
         setupUI()
-        configure(with: DS_ProfileHeaderInfo.preview)
     }
 
     @available(*, unavailable)

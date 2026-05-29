@@ -132,14 +132,22 @@ class DS_SetupVC: DS_SecondaryVC {
     @objc private func didTapOption(_ sender: UIButton) {
         guard let option = DS_SetupOption(rawValue: sender.tag) else { return }
         switch option {
+            case .contact:
+                navigationController?.pushViewController(DS_ContactVC(), animated: true)
             case .blacklist:
-                self.navigationController?.pushViewController(DS_BlackListVC(), animated: true)
+                navigationController?.pushViewController(DS_BlackListVC(), animated: true)
+            case .policy:
+                if let doc = URL(string: "https://docs.google.com/document/d/1CfH_t1e-yrRad7vHeT3GX5wyD2psZ04ZGjH9wYpwznM/edit?usp=sharing") {
+                    UIApplication.shared.open(doc, options: [:], completionHandler: nil)
+                }
+            case .guide:
+                if let doc = URL(string: "https://docs.google.com/document/d/1neC1k56HvPxOwyn0CgFWK02q1llrAo5bP_sUeduiCFU/edit?usp=sharing") {
+                    UIApplication.shared.open(doc, options: [:], completionHandler: nil)
+                }
             case .signOut:
                 presentSignOutConfirmation()
             case .deleteAccount:
                 presentDeleteAccountConfirmation()
-            default:
-                break
         }
     }
 

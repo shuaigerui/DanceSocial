@@ -165,6 +165,22 @@ class DS_LiveVC: DS_BaseVC {
 
     private var lastHeaderWidth: CGFloat = 0
 
+    private func presentDeleteConfirmation(roomId: String) {
+        guard let room = displayRooms.first(where: { $0.roomId == roomId }) else { return }
+
+        let alert = UIAlertController(
+            title: "Delete Chat Room?",
+            message: "\"\(room.title)\" will be permanently removed from this device.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard DS_CurrentUser.shared.deleteCreatedLiveRoom(roomId: roomId) else { return }
+            self?.loadData()
+        })
+        present(alert, animated: true)
+    }
+
     private func updateHeaderReferenceSizeIfNeeded() {
         let width = collectionView.bounds.width
         guard width > 0, width != lastHeaderWidth,
@@ -194,6 +210,14 @@ extension DS_LiveVC: UICollectionViewDataSource {
             return UICollectionViewCell()
         }
         cell.configure(with: displayItems[indexPath.item], listType: currentTab)
+        if currentTab == .creation, indexPath.item < displayRooms.count {
+            let roomId = displayRooms[indexPath.item].roomId
+            cell.onActionTapped = { [weak self] in
+                self?.presentDeleteConfirmation(roomId: roomId)
+            }
+        } else {
+            cell.onActionTapped = nil
+        }
         return cell
     }
 

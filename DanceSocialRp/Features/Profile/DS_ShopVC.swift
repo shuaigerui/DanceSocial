@@ -6,23 +6,24 @@
 //
 
 import UIKit
+import SVProgressHUD
+import Toast_Swift
 
 class DS_ShopVC: DS_SecondaryVC {
 
     private enum Layout {
         static let horizontalInset: CGFloat = 16
         static let itemSpacing: CGFloat = 7
-        static let remainAspect: CGFloat = 276.0 / 1032.0
-        static let packageAspect: CGFloat = 240.0 / 504.0
-        static let confirmAspect: CGFloat = 192.0 / 801.0
+        static let lineSpacing: CGFloat = 14
         static let navBarHeight: CGFloat = 44
+        static let cellHeight: CGFloat = 80
+        /// 余额文字起始位置，避开 shop_remain 左侧星星
+        static let remainTextLeading: CGFloat = 112
     }
 
     private var selectedPackageIndex = 0
-
-    private let packages: [DS_ShopPackageItem] = (1...8).map {
-        DS_ShopPackageItem(id: $0, amount: 12)
-    }
+    private let packages = DS_ShopCatalog.packages
+    private var storePrices: [String: String] = [:]
 
     private let navBarView: UIView = {
         let view = UIView()
@@ -52,6 +53,16 @@ class DS_ShopVC: DS_SecondaryVC {
         return imageView
     }()
 
+    private let balanceLabel: UILabel = {
+        let label = UILabel()
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 24, weight: .semibold)
+        label.textAlignment = .right
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.5
+        return label
+    }()
+
     private let descriptionLabel: UILabel = {
         let label = UILabel()
         label.text = "It can be used to post your moments and frustrations."
@@ -64,8 +75,8 @@ class DS_ShopVC: DS_SecondaryVC {
 
     private lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 7
-        layout.minimumLineSpacing = 14
+        layout.minimumInteritemSpacing = Layout.itemSpacing
+        layout.minimumLineSpacing = Layout.lineSpacing
 
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .black
@@ -89,6 +100,13 @@ class DS_ShopVC: DS_SecondaryVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        refreshBalance()
+        loadStoreProducts()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        refreshBalance()
     }
 
     private func setupUI() {
@@ -96,6 +114,7 @@ class DS_ShopVC: DS_SecondaryVC {
 
         view.addSubview(navBarView)
         view.addSubview(remainImageView)
+        remainImageView.addSubview(balanceLabel)
         view.addSubview(descriptionLabel)
         view.addSubview(collectionView)
         view.addSubview(confirmButton)
@@ -124,6 +143,12 @@ class DS_ShopVC: DS_SecondaryVC {
             make.leading.trailing.equalToSuperview().inset(Layout.horizontalInset)
         }
 
+        balanceLabel.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.leading.equalToSuperview().offset(Layout.remainTextLeading)
+            make.trailing.equalToSuperview().offset(-20)
+        }
+
         descriptionLabel.snp.makeConstraints { make in
             make.top.equalTo(remainImageView.snp.bottom).offset(16)
             make.leading.trailing.equalToSuperview().inset(25)
@@ -143,12 +168,60 @@ class DS_ShopVC: DS_SecondaryVC {
         }
     }
 
+    private func refreshBalance() {
+        let balance = DS_CurrentUser.shared.user?.goldCoins ?? 0
+        balanceLabel.text = "\(DS_ShopCatalog.formattedDiamonds(balance))"
+    }
+
+    private func loadStoreProducts() {
+        Task {
+            await DS_IAPManager.shared.loadProducts()
+            var prices: [String: String] = [:]
+            for item in packages {
+                if let price = DS_IAPManager.shared.displayPrice(for: item.productId) {
+                    prices[item.productId] = price
+                }
+            }
+            storePrices = prices
+            collectionView.reloadData()
+        }
+    }
+
     @objc private func didTapBack() {
         navigationController?.popViewController(animated: true)
     }
 
     @objc private func didTapConfirm() {
-        // TODO: purchase selected package
+        guard DS_CurrentUser.shared.isLoggedIn else {
+            view.makeToast("Please sign in first")
+            return
+        }
+
+        let package = packages[selectedPackageIndex]
+        SVProgressHUD.show()
+
+        Task {
+            do {
+                let diamonds = try await DS_IAPManager.shared.purchase(productId: package.productId)
+                await MainActor.run {
+                    SVProgressHUD.dismiss()
+                    refreshBalance()
+                    if diamonds > 0 {
+                        view.makeToast("+\(DS_ShopCatalog.formattedDiamonds(diamonds)) diamonds")
+                    }
+                }
+            } catch DS_IAPError.userCancelled {
+                await MainActor.run {
+                    SVProgressHUD.dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    SVProgressHUD.dismiss()
+                    let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    view.makeToast(message)
+                }
+            }
+        }
     }
 }
 
@@ -168,9 +241,11 @@ extension DS_ShopVC: UICollectionViewDataSource {
         ) as? DS_ShopPackageCell else {
             return UICollectionViewCell()
         }
+        let item = packages[indexPath.item]
         cell.configure(
-            with: packages[indexPath.item],
-            isSelected: indexPath.item == selectedPackageIndex
+            with: item,
+            isSelected: indexPath.item == selectedPackageIndex,
+            storePrice: storePrices[item.productId]
         )
         return cell
     }
@@ -183,9 +258,8 @@ extension DS_ShopVC: UICollectionViewDelegateFlowLayout {
         layout collectionViewLayout: UICollectionViewLayout,
         sizeForItemAt indexPath: IndexPath
     ) -> CGSize {
-        let totalSpacing = Layout.itemSpacing
-        let width = (collectionView.bounds.width - totalSpacing) / 2
-        return CGSize(width: width, height: 80)
+        let width = (collectionView.bounds.width - Layout.itemSpacing) / 2
+        return CGSize(width: width, height: Layout.cellHeight)
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

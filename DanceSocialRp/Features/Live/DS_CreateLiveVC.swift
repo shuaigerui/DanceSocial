@@ -200,10 +200,20 @@ class DS_CreateLiveVC: DS_SecondaryVC {
             return
         }
 
-        view.makeToast("Chat room created successfully")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
-        }
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.view.makeToast("Chat room created successfully")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    self?.navigationController?.popViewController(animated: true)
+                }
+            case .failure(_):
+                self.view.makeToast("Chat room created successfully")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    self?.navigationController?.popViewController(animated: true)
+                }
+            }
+        }        
     }
 }
 

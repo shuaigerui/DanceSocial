@@ -645,7 +645,7 @@ enum UserData {
                 imageFile: "post_01.webp",
                 chatRoomFile: "chatRoom_01.png",
                 avatarFile: "avatar_01.png",
-                goldCoins: 123123
+                goldCoins: 100
             ),
             makeUser(
                 index: 2,

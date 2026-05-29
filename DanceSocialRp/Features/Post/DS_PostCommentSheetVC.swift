@@ -245,6 +245,18 @@ final class DS_PostCommentSheetVC: UIViewController {
     }
 
     @objc private func didTapSend() {
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.sendAction()
+            case .failure(_):
+                self.sendAction()
+            }
+        }
+    }
+    
+    private func sendAction(){
+        
         let text = messageTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !text.isEmpty else { return }
 

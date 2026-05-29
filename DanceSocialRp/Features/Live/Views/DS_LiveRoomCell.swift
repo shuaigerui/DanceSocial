@@ -38,10 +38,13 @@ final class DS_LiveRoomCell: UICollectionViewCell {
         return imageView
     }()
 
-    private let actionImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFit
-        return imageView
+    var onActionTapped: (() -> Void)?
+
+    private lazy var actionButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.imageView?.contentMode = .scaleAspectFit
+        button.addTarget(self, action: #selector(didTapAction), for: .touchUpInside)
+        return button
     }()
 
     private let avatarImageViews: [UIImageView] = (0..<3).map { _ in
@@ -86,9 +89,11 @@ final class DS_LiveRoomCell: UICollectionViewCell {
 
         switch listType {
         case .recommend:
-            actionImageView.image = UIImage(named: "live_go")
+            actionButton.setImage(UIImage(named: "live_go"), for: .normal)
+            actionButton.isUserInteractionEnabled = false
         case .creation:
-            actionImageView.image = UIImage(named: "live_del")
+            actionButton.setImage(UIImage(named: "live_del"), for: .normal)
+            actionButton.isUserInteractionEnabled = true
         }
 
         for (index, imageView) in avatarImageViews.enumerated() {
@@ -102,7 +107,7 @@ final class DS_LiveRoomCell: UICollectionViewCell {
         contentView.backgroundColor = UIColor.hex("#2C2C2E")
 
         contentView.addSubview(coverImageView)
-        contentView.addSubview(actionImageView)
+        contentView.addSubview(actionButton)
         avatarImageViews.forEach { contentView.addSubview($0) }
         contentView.addSubview(titleLabel)
 
@@ -110,7 +115,7 @@ final class DS_LiveRoomCell: UICollectionViewCell {
             make.edges.equalToSuperview()
         }
 
-        actionImageView.snp.makeConstraints { make in
+        actionButton.snp.makeConstraints { make in
             make.top.trailing.equalToSuperview().inset(Layout.contentInset)
             make.size.equalTo(Layout.goButtonSize)
         }
@@ -131,5 +136,14 @@ final class DS_LiveRoomCell: UICollectionViewCell {
             make.leading.trailing.equalToSuperview().inset(Layout.contentInset)
             make.bottom.equalToSuperview().inset(Layout.contentInset)
         }
+    }
+
+    @objc private func didTapAction() {
+        onActionTapped?()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        onActionTapped = nil
     }
 }

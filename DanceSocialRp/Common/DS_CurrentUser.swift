@@ -19,6 +19,9 @@ final class DS_CurrentUser {
     /// 测试账号 userId（Marceline）
     static let testUserId = "u_001"
 
+    /// 发布动态消耗的金币数
+    static let postPublishGoldCost = 10
+
     private enum StorageKey {
         static let registeredUsers = "ds_registered_users"
         static let loggedInUserId = "ds_logged_in_user_id"
@@ -285,6 +288,7 @@ final class DS_CurrentUser {
 
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedContent.isEmpty else { return false }
+        guard current.goldCoins >= Self.postPublishGoldCost else { return false }
 
         let postId = "p_\(current.userId)_\(UUID().uuidString.prefix(8))"
         let mediaUrl: String?
@@ -320,7 +324,7 @@ final class DS_CurrentUser {
             userName: current.userName,
             avatarUrl: current.avatarUrl,
             coverUrl: current.coverUrl,
-            goldCoins: current.goldCoins,
+            goldCoins: current.goldCoins - Self.postPublishGoldCost,
             isBlack: current.isBlack,
             isFollow: current.isFollow,
             posts: current.posts + [post],
@@ -603,6 +607,60 @@ final class DS_CurrentUser {
             isFollow: current.isFollow,
             posts: current.posts,
             createdLiveRooms: current.createdLiveRooms + [room]
+        )
+
+        configure(with: updatedUser, saveToRegisteredList: true)
+        return true
+    }
+
+    /// 删除当前用户创建的聊天室（含封面文件）
+    @discardableResult
+    func deleteCreatedLiveRoom(roomId: String) -> Bool {
+        guard let current = user,
+              let room = current.createdLiveRooms.first(where: { $0.roomId == roomId }),
+              room.hostUserId == current.userId else {
+            return false
+        }
+
+        removeLiveRoomCoverFiles(for: room)
+
+        let updatedUser = DS_UserModel(
+            userId: current.userId,
+            account: current.account,
+            password: current.password,
+            userName: current.userName,
+            avatarUrl: current.avatarUrl,
+            coverUrl: current.coverUrl,
+            goldCoins: current.goldCoins,
+            isBlack: current.isBlack,
+            isFollow: current.isFollow,
+            posts: current.posts,
+            createdLiveRooms: current.createdLiveRooms.filter { $0.roomId != roomId }
+        )
+
+        configure(with: updatedUser, saveToRegisteredList: true)
+        return true
+    }
+
+    // MARK: - Shop
+
+    /// 内购成功后增加钻石（goldCoins）
+    @discardableResult
+    func addGoldCoins(_ amount: Int) -> Bool {
+        guard let current = user, amount > 0 else { return false }
+
+        let updatedUser = DS_UserModel(
+            userId: current.userId,
+            account: current.account,
+            password: current.password,
+            userName: current.userName,
+            avatarUrl: current.avatarUrl,
+            coverUrl: current.coverUrl,
+            goldCoins: current.goldCoins + amount,
+            isBlack: current.isBlack,
+            isFollow: current.isFollow,
+            posts: current.posts,
+            createdLiveRooms: current.createdLiveRooms
         )
 
         configure(with: updatedUser, saveToRegisteredList: true)

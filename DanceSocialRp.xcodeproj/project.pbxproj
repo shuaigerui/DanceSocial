@@ -7,11 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		04E3DB5F2FC9714700F48A04 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04E3DB5E2FC9714700F48A04 /* StoreKit.framework */; };
 		8D6D1CA4A28C3C75490B38F3 /* Pods_DanceSocialRp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FFC8F0F2A81ED9A9E16180BA /* Pods_DanceSocialRp.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		042D7CC62FC68A56007184CA /* DanceSocialRp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DanceSocialRp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		04E3DB5E2FC9714700F48A04 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		1CCE80C51E030B9DFA90995E /* Pods-DanceSocialRp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DanceSocialRp.release.xcconfig"; path = "Target Support Files/Pods-DanceSocialRp/Pods-DanceSocialRp.release.xcconfig"; sourceTree = "<group>"; };
 		4B2CB61F61723B69D2E9FB9E /* Pods-DanceSocialRp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DanceSocialRp.debug.xcconfig"; path = "Target Support Files/Pods-DanceSocialRp/Pods-DanceSocialRp.debug.xcconfig"; sourceTree = "<group>"; };
 		FFC8F0F2A81ED9A9E16180BA /* Pods_DanceSocialRp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_DanceSocialRp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,6 +46,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D6D1CA4A28C3C75490B38F3 /* Pods_DanceSocialRp.framework in Frameworks */,
+				04E3DB5F2FC9714700F48A04 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,6 +83,7 @@
 		E87A0CE5554CCBBD32FCF2C8 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				04E3DB5E2FC9714700F48A04 /* StoreKit.framework */,
 				FFC8F0F2A81ED9A9E16180BA /* Pods_DanceSocialRp.framework */,
 			);
 			name = Frameworks;
@@ -225,6 +229,10 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DanceSocialRp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Xixi;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required for video chat.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for video chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "You need to access your photo album to set your profile picture.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -236,7 +244,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aaa.DanceSocialRp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.DanceSocial.xixi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -265,6 +273,10 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DanceSocialRp/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Xixi;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is required for video chat.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is required for video chat.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "You need to access your photo album to set your profile picture.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
@@ -276,7 +288,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = aaa.DanceSocialRp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.DanceSocial.xixi;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
