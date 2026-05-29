@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_ChatRoomContact {
+    let userId: String
     let name: String
     let avatarImageName: String?
 }
@@ -24,16 +25,7 @@ class DS_ChatRoomVC: DS_SecondaryVC {
 
     private let contact: DS_ChatRoomContact
 
-    private var messages: [DS_ChatRoomMessage] = [
-        DS_ChatRoomMessage(
-            sender: .peer,
-            text: "Hello. What do I need your answerHello. What do I need your answer?"
-        ),
-        DS_ChatRoomMessage(
-            sender: .me,
-            text: "Hello. What do I need your answerHello. What do I need your answer?"
-        )
-    ]
+    private var messages: [DS_ChatRoomMessage] = []
 
     private let navBarView: UIView = {
         let view = UIView()
@@ -141,7 +133,7 @@ class DS_ChatRoomVC: DS_SecondaryVC {
     }
 
     convenience init() {
-        self.init(contact: DS_ChatRoomContact(name: "Beach", avatarImageName: "chat_room"))
+        self.init(contact: DS_ChatRoomContact(userId: "u_003", name: "Beach", avatarImageName: nil))
     }
 
     @available(*, unavailable)
@@ -153,15 +145,41 @@ class DS_ChatRoomVC: DS_SecondaryVC {
         super.viewDidLoad()
         applyContact()
         setupUI()
+        reloadMessages()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        markConversationReadIfNeeded()
+    }
+
+    private var currentUserId: String? {
+        DS_CurrentUser.shared.user?.userId
+    }
+
+    private var meAvatarPath: String? {
+        DS_CurrentUser.shared.user?.avatarUrl
+    }
+
+    private func reloadMessages() {
+        guard let currentUserId else {
+            messages = []
+            tableView.reloadData()
+            return
+        }
+        messages = DS_ChatStore.messages(currentUserId: currentUserId, peerUserId: contact.userId)
+        tableView.reloadData()
         scrollToBottom(animated: false)
+    }
+
+    private func markConversationReadIfNeeded() {
+        guard let currentUserId else { return }
+        DS_ChatStore.markConversationRead(currentUserId: currentUserId, peerUserId: contact.userId)
     }
 
     private func applyContact() {
         headerNameLabel.text = contact.name
-        if let avatarImageName = contact.avatarImageName,
-           let image = UIImage(named: avatarImageName) {
-            headerAvatarImageView.image = image
-        }
+        headerAvatarImageView.image = UserData.image(for: contact.avatarImageName)
     }
 
     private func setupUI() {
@@ -259,11 +277,15 @@ class DS_ChatRoomVC: DS_SecondaryVC {
     }
 
     @objc private func didTapMore() {
-        // TODO: more actions
+        ds_presentBlacklistConfirmation(peerUserId: contact.userId, peerName: contact.name) { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
     }
 
     @objc private func didTapVideo() {
+        guard ds_guardMutualFollowForChat(peerUserId: contact.userId) else { return }
         let videoRoom = DS_VideoRoomVC(
+            peerUserId: contact.userId,
             peerName: contact.name,
             peerAvatarPath: contact.avatarImageName
         )
@@ -272,11 +294,16 @@ class DS_ChatRoomVC: DS_SecondaryVC {
 
     @objc private func didTapSend() {
         let text = messageTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, let currentUserId else { return }
 
-        messages.append(DS_ChatRoomMessage(sender: .me, text: text))
+        DS_ChatStore.appendMessage(
+            currentUserId: currentUserId,
+            contact: contact,
+            sender: .me,
+            text: text
+        )
         messageTextField.text = nil
-        tableView.reloadData()
+        reloadMessages()
         scrollToBottom(animated: true)
     }
 }
@@ -296,8 +323,8 @@ extension DS_ChatRoomVC: UITableViewDataSource {
         }
         cell.configure(
             with: messages[indexPath.row],
-            peerAvatarImageName: contact.avatarImageName,
-            meAvatarImageName: "chat_room"
+            peerAvatarPath: contact.avatarImageName,
+            meAvatarPath: meAvatarPath
         )
         return cell
     }

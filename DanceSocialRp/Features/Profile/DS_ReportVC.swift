@@ -36,7 +36,20 @@ class DS_ReportVC: DS_SecondaryVC {
         static let optionAspect: CGFloat = 201.0 / 1029.0
     }
 
+    private let postId: String
+    private var postOwnerUserId: String?
+    private var postOwnerName: String?
     private var selectedOption: DS_ReportOption?
+
+    init(postId: String) {
+        self.postId = postId
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     private let navBarView: UIView = {
         let view = UIView()
@@ -94,8 +107,15 @@ class DS_ReportVC: DS_SecondaryVC {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        loadPostOwner()
         setupUI()
         setupOptionConstraints()
+    }
+
+    private func loadPostOwner() {
+        guard let post = DS_CurrentUser.shared.post(postId: postId) else { return }
+        postOwnerUserId = post.userId
+        postOwnerName = post.userName
     }
 
     private func setupUI() {
@@ -161,17 +181,39 @@ class DS_ReportVC: DS_SecondaryVC {
     @objc private func didTapOption(_ sender: UIButton) {
         guard let option = DS_ReportOption(rawValue: sender.tag) else { return }
 
-        if option == .blacklist {
-            navigationController?.pushViewController(DS_BlackListVC(), animated: true)
-            return
-        }
-
         selectedOption = option
         optionButtons.forEach { $0.alpha = $0 === sender ? 1 : 0.65 }
     }
 
     @objc private func didTapConfirm() {
-        // TODO: submit selectedOption report
+        guard let selectedOption else {
+            presentAlert(message: "Please select a report reason.")
+            return
+        }
+
+        if selectedOption == .blacklist {
+            presentBlacklistConfirmation()
+            return
+        }
+
+        DS_CurrentUser.shared.hidePost(postId: postId)
         navigationController?.popViewController(animated: true)
+    }
+
+    private func presentBlacklistConfirmation() {
+        guard let userId = postOwnerUserId else {
+            presentAlert(message: "Unable to block this user.")
+            return
+        }
+
+        ds_presentBlacklistConfirmation(peerUserId: userId, peerName: postOwnerName ?? "") { [weak self] in
+            self?.navigationController?.popViewController(animated: true)
+        }
+    }
+
+    private func presentAlert(message: String) {
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }

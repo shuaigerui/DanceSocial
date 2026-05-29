@@ -177,7 +177,8 @@ class DS_VideoVC: DS_SecondaryVC {
             return
         }
 
-        let player = AVPlayer(url: url)
+        let item = AVPlayerItem(url: url)
+        let player = AVPlayer(playerItem: item)
         self.player = player
 
         let layer = AVPlayerLayer(player: player)
@@ -188,7 +189,7 @@ class DS_VideoVC: DS_SecondaryVC {
 
         endObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
+            object: item,
             queue: .main
         ) { [weak self] _ in
             self?.player?.seek(to: .zero)

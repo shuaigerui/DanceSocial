@@ -16,10 +16,18 @@ final class DS_CurrentUser {
     static let reviewAccount = "test@gmail.com"
     static let reviewPassword = "123456"
 
+    /// 测试账号 userId（Marceline）
+    static let testUserId = "u_001"
+
     private enum StorageKey {
         static let registeredUsers = "ds_registered_users"
         static let loggedInUserId = "ds_logged_in_user_id"
         static let followByUserId = "ds_follow_by_user_id"
+        static let postExtraComments = "ds_post_extra_comments"
+        static let followEdges = "ds_follow_edges"
+        static let followGraphSeeded = "ds_follow_graph_seeded_v1"
+        static let hiddenPostIds = "ds_hidden_post_ids"
+        static let blacklistedUserIds = "ds_blacklisted_user_ids"
     }
 
     private(set) var user: DS_UserModel?
@@ -30,10 +38,20 @@ final class DS_CurrentUser {
 
     private var registeredUsers: [DS_UserModel] = []
     private var followByUserId: [String: Bool] = [:]
+    /// followerId|followingId，表示 follower 关注了 following
+    private var followEdges: Set<String> = []
+    /// 用户发送的评论，按 postId 持久化（重启后保留）
+    private var postExtraComments: [String: [DS_PostCommentModel]] = [:]
+    /// 当前用户举报后隐藏的动态 postId
+    private var hiddenPostIds: Set<String> = []
+    /// 当前用户拉黑的用户 userId
+    private var blacklistedUserIds: Set<String> = []
 
     private init() {
         loadRegisteredUsers()
+        loadPostExtraComments()
         loadFollowStates()
+        loadFollowGraph()
         restoreSessionIfNeeded()
     }
 
@@ -46,7 +64,7 @@ final class DS_CurrentUser {
 
         if email == Self.reviewAccount.lowercased(), password == Self.reviewPassword {
             let base = UserData.users[0]
-            let user = registeredUsers.first(where: { $0.userId == base.userId }) ?? base
+            let user = signInUser(for: base)
             configure(with: user)
             enterMainInterface()
             return true
@@ -55,8 +73,7 @@ final class DS_CurrentUser {
         if let preset = UserData.users.first(where: {
             $0.account.lowercased() == email && $0.password == password
         }) {
-            let user = registeredUsers.first(where: { $0.userId == preset.userId }) ?? preset
-            configure(with: user)
+            configure(with: signInUser(for: preset))
             enterMainInterface()
             return true
         }
@@ -74,16 +91,21 @@ final class DS_CurrentUser {
 
     /// 注册 / Apple 登录完善资料后设置当前用户
     func configure(with user: DS_UserModel, saveToRegisteredList: Bool = false) {
-        self.user = user
-        UserDefaults.standard.set(user.userId, forKey: StorageKey.loggedInUserId)
+        let normalized = UserData.migrateUserMediaPaths(user)
+        self.user = normalized
+        UserDefaults.standard.set(normalized.userId, forKey: StorageKey.loggedInUserId)
+        loadHiddenPostIds(for: normalized.userId)
+        loadBlacklistedUserIds(for: normalized.userId)
 
         if saveToRegisteredList {
-            upsertRegisteredUser(user)
+            upsertRegisteredUser(normalized)
         }
     }
 
     func signOut() {
         user = nil
+        hiddenPostIds = []
+        blacklistedUserIds = []
         UserDefaults.standard.removeObject(forKey: StorageKey.loggedInUserId)
     }
 
@@ -204,6 +226,213 @@ final class DS_CurrentUser {
         return true
     }
 
+    /// 动态广场：预设帖子 + 本地覆盖，并合并用户发送的评论
+    func allFeedPosts() -> [DS_PostModel] {
+        var postsById: [String: DS_PostModel] = [:]
+        for post in UserData.users.flatMap(\.posts) {
+            postsById[post.postId] = postWithMergedComments(post)
+        }
+        for registered in registeredUsers {
+            for post in registered.posts {
+                postsById[post.postId] = postWithMergedComments(post)
+            }
+        }
+        return filterVisiblePosts(Array(postsById.values))
+    }
+
+    /// 举报后隐藏动态（仅对当前登录用户生效，本地持久化）
+    func hidePost(postId: String) {
+        guard let current = user, !postId.isEmpty else { return }
+        hiddenPostIds.insert(postId)
+        saveHiddenPostIds(for: current.userId)
+    }
+
+    func isPostHidden(postId: String) -> Bool {
+        hiddenPostIds.contains(postId)
+    }
+
+    func filterVisiblePosts(_ posts: [DS_PostModel]) -> [DS_PostModel] {
+        posts.filter {
+            !hiddenPostIds.contains($0.postId) && !blacklistedUserIds.contains($0.userId)
+        }
+    }
+
+    func isUserBlacklisted(userId: String) -> Bool {
+        blacklistedUserIds.contains(userId)
+    }
+
+    /// 拉黑用户：隐藏其全部动态并清除私信记录
+    func blacklistUser(userId: String) {
+        guard let current = user, !userId.isEmpty, userId != current.userId else { return }
+        blacklistedUserIds.insert(userId)
+        saveBlacklistedUserIds(for: current.userId)
+        DS_ChatStore.deleteConversation(currentUserId: current.userId, peerUserId: userId)
+    }
+
+    func unblacklistUser(userId: String) {
+        guard let current = user, !userId.isEmpty else { return }
+        blacklistedUserIds.remove(userId)
+        saveBlacklistedUserIds(for: current.userId)
+    }
+
+    func blacklistItems() -> [DS_BlackListItem] {
+        blacklistedUserIds.sorted().compactMap { userId in
+            guard let user = UserData.resolvedUser(userId: userId) else { return nil }
+            return DS_BlackListItem(
+                userId: user.userId,
+                avatarImageName: user.avatarUrl,
+                userName: user.userName
+            )
+        }
+    }
+
+    /// 查找任意用户下的一条动态（预设 + 本地注册数据 + 用户评论）
+    func post(postId: String) -> DS_PostModel? {
+        guard let raw = rawPost(postId: postId) else { return nil }
+        return postWithMergedComments(raw)
+    }
+
+    /// 为指定动态添加评论并持久化到本地
+    @discardableResult
+    func addComment(toPostId postId: String, content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let current = user else { return false }
+        guard let targetPost = post(postId: postId) else { return false }
+
+        let comment = DS_PostCommentModel(
+            commentId: "c_\(UUID().uuidString.prefix(8))",
+            userId: current.userId,
+            userName: current.userName,
+            avatarUrl: current.avatarUrl,
+            content: trimmed
+        )
+
+        var extra = postExtraComments[postId] ?? []
+        extra.append(comment)
+        postExtraComments[postId] = extra
+        savePostExtraComments()
+
+        let updatedPost = DS_PostModel(
+            postId: targetPost.postId,
+            userId: targetPost.userId,
+            userName: targetPost.userName,
+            avatarUrl: targetPost.avatarUrl,
+            content: targetPost.content,
+            mediaType: targetPost.mediaType,
+            mediaUrl: targetPost.mediaUrl,
+            videoCoverUrl: targetPost.videoCoverUrl,
+            comments: targetPost.comments + [comment]
+        )
+
+        replacePost(updatedPost, ownerUserId: targetPost.userId)
+        return true
+    }
+
+    private func rawPost(postId: String) -> DS_PostModel? {
+        for registered in registeredUsers {
+            if let post = registered.posts.first(where: { $0.postId == postId }) {
+                return post
+            }
+        }
+        if let user, let post = user.posts.first(where: { $0.postId == postId }) {
+            return post
+        }
+        return UserData.users.lazy.flatMap(\.posts).first { $0.postId == postId }
+    }
+
+    private func mergedComments(for postId: String, base: [DS_PostCommentModel]) -> [DS_PostCommentModel] {
+        let extra = postExtraComments[postId] ?? []
+        var byId = Dictionary(uniqueKeysWithValues: base.map { ($0.commentId, $0) })
+        for comment in extra {
+            byId[comment.commentId] = comment
+        }
+        return byId.values.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private func postWithMergedComments(_ post: DS_PostModel) -> DS_PostModel {
+        DS_PostModel(
+            postId: post.postId,
+            userId: post.userId,
+            userName: post.userName,
+            avatarUrl: post.avatarUrl,
+            content: post.content,
+            mediaType: post.mediaType,
+            mediaUrl: post.mediaUrl,
+            videoCoverUrl: post.videoCoverUrl,
+            comments: mergedComments(for: post.postId, base: post.comments)
+        )
+    }
+
+    private func userWithMergedPostComments(_ user: DS_UserModel) -> DS_UserModel {
+        let posts = user.posts.map(postWithMergedComments)
+        return DS_UserModel(
+            userId: user.userId,
+            account: user.account,
+            password: user.password,
+            userName: user.userName,
+            avatarUrl: user.avatarUrl,
+            coverUrl: user.coverUrl,
+            goldCoins: user.goldCoins,
+            isBlack: user.isBlack,
+            isFollow: user.isFollow,
+            posts: posts,
+            createdLiveRooms: user.createdLiveRooms
+        )
+    }
+
+    @discardableResult
+    private func replacePost(_ post: DS_PostModel, ownerUserId: String) -> Bool {
+        if let index = registeredUsers.firstIndex(where: { $0.userId == ownerUserId }) {
+            var owner = registeredUsers[index]
+            guard let postIndex = owner.posts.firstIndex(where: { $0.postId == post.postId }) else {
+                return false
+            }
+            var posts = owner.posts
+            posts[postIndex] = post
+            owner = user(owner, posts: posts)
+            registeredUsers[index] = owner
+            saveRegisteredUsers()
+            if user?.userId == ownerUserId {
+                user = owner
+            }
+            return true
+        }
+
+        guard let preset = UserData.user(userId: ownerUserId),
+              preset.posts.contains(where: { $0.postId == post.postId }) else {
+            return false
+        }
+
+        var owner = UserData.migrateUserMediaPaths(preset)
+        guard let postIndex = owner.posts.firstIndex(where: { $0.postId == post.postId }) else {
+            return false
+        }
+        var posts = owner.posts
+        posts[postIndex] = post
+        owner = user(owner, posts: posts)
+        upsertRegisteredUser(owner)
+        if user?.userId == ownerUserId {
+            user = owner
+        }
+        return true
+    }
+
+    private func user(_ user: DS_UserModel, posts: [DS_PostModel]) -> DS_UserModel {
+        DS_UserModel(
+            userId: user.userId,
+            account: user.account,
+            password: user.password,
+            userName: user.userName,
+            avatarUrl: user.avatarUrl,
+            coverUrl: user.coverUrl,
+            goldCoins: user.goldCoins,
+            isBlack: user.isBlack,
+            isFollow: user.isFollow,
+            posts: posts,
+            createdLiveRooms: user.createdLiveRooms
+        )
+    }
+
     /// 删除当前用户的一条动态并同步到本地
     @discardableResult
     func deletePost(postId: String) -> Bool {
@@ -299,7 +528,8 @@ final class DS_CurrentUser {
                 content: post.content,
                 mediaType: post.mediaType,
                 mediaUrl: post.mediaUrl,
-                videoCoverUrl: post.videoCoverUrl
+                videoCoverUrl: post.videoCoverUrl,
+                comments: post.comments
             )
         }
 
@@ -342,15 +572,118 @@ final class DS_CurrentUser {
             base = UserData.user(userId: userId)
         }
         guard let base else { return nil }
-        return applyingStoredFollowState(to: base)
+        let merged = UserData.user(userId: userId).map {
+            UserData.mergingPresetComments(into: base, preset: $0)
+        } ?? base
+        return applyingStoredFollowState(to: userWithVisiblePosts(userWithMergedPostComments(merged)))
+    }
+
+    private func userWithVisiblePosts(_ user: DS_UserModel) -> DS_UserModel {
+        let posts = filterVisiblePosts(user.posts)
+        guard posts.count != user.posts.count else { return user }
+        return DS_UserModel(
+            userId: user.userId,
+            account: user.account,
+            password: user.password,
+            userName: user.userName,
+            avatarUrl: user.avatarUrl,
+            coverUrl: user.coverUrl,
+            goldCoins: user.goldCoins,
+            isBlack: user.isBlack,
+            isFollow: user.isFollow,
+            posts: posts,
+            createdLiveRooms: user.createdLiveRooms
+        )
+    }
+
+    private func hiddenPostIdsKey(for userId: String) -> String {
+        "\(StorageKey.hiddenPostIds)_\(userId)"
+    }
+
+    private func loadHiddenPostIds(for userId: String) {
+        let key = hiddenPostIdsKey(for: userId)
+        if let stored = UserDefaults.standard.array(forKey: key) as? [String] {
+            hiddenPostIds = Set(stored)
+        } else {
+            hiddenPostIds = []
+        }
+    }
+
+    private func saveHiddenPostIds(for userId: String) {
+        let key = hiddenPostIdsKey(for: userId)
+        UserDefaults.standard.set(Array(hiddenPostIds), forKey: key)
+    }
+
+    private func blacklistedUserIdsKey(for userId: String) -> String {
+        "\(StorageKey.blacklistedUserIds)_\(userId)"
+    }
+
+    private func loadBlacklistedUserIds(for userId: String) {
+        let key = blacklistedUserIdsKey(for: userId)
+        if let stored = UserDefaults.standard.array(forKey: key) as? [String] {
+            blacklistedUserIds = Set(stored)
+        } else {
+            blacklistedUserIds = []
+        }
+    }
+
+    private func saveBlacklistedUserIds(for userId: String) {
+        let key = blacklistedUserIdsKey(for: userId)
+        UserDefaults.standard.set(Array(blacklistedUserIds), forKey: key)
     }
 
     // MARK: - Follow
 
+    /// 当前用户是否关注了对方
+    func isFollowing(userId: String) -> Bool {
+        guard let current = user else { return false }
+        return follows(followerId: current.userId, followingId: userId)
+    }
+
+    /// 是否与对方互相关注
+    func isMutualFollow(with userId: String) -> Bool {
+        guard let current = user else { return false }
+        return follows(followerId: current.userId, followingId: userId)
+            && follows(followerId: userId, followingId: current.userId)
+    }
+
+    /// 关注了当前用户的用户（Ask 列表）
+    func chatAskItems() -> [DS_ChatAskItem] {
+        guard let current = user else { return [] }
+        return followerUserIds(of: current.userId)
+            .filter { !isUserBlacklisted(userId: $0) }
+            .compactMap { UserData.resolvedUser(userId: $0) }
+            .map { follower in
+                DS_ChatAskItem(
+                    userId: follower.userId,
+                    avatarImageName: follower.avatarUrl,
+                    name: follower.userName,
+                    isFollowing: isFollowing(userId: follower.userId)
+                )
+            }
+    }
+
+    /// 与当前用户互相关注的用户（Friend 列表）
+    func chatFriendItems() -> [DS_ChatFriendItem] {
+        guard let current = user else { return [] }
+        return followerUserIds(of: current.userId)
+            .filter { isMutualFollow(with: $0) && !isUserBlacklisted(userId: $0) }
+            .compactMap { UserData.resolvedUser(userId: $0) }
+            .map { friend in
+                DS_ChatFriendItem(
+                    userId: friend.userId,
+                    avatarImageName: friend.avatarUrl,
+                    name: friend.userName
+                )
+            }
+    }
+
     /// 切换关注状态并写入本地
     @discardableResult
     func toggleFollow(userId: String, isFollow: Bool) -> Bool {
+        guard let current = user else { return false }
         let newValue = !isFollow
+        setFollow(followerId: current.userId, followingId: userId, follows: newValue)
         followByUserId[userId] = newValue
         saveFollowStates()
 
@@ -358,6 +691,72 @@ final class DS_CurrentUser {
             upsertRegisteredUser(user(registered, isFollow: newValue))
         }
         return newValue
+    }
+
+    private func follows(followerId: String, followingId: String) -> Bool {
+        followEdges.contains(followEdgeKey(followerId: followerId, followingId: followingId))
+    }
+
+    private func setFollow(followerId: String, followingId: String, follows: Bool, persist: Bool = true) {
+        let key = followEdgeKey(followerId: followerId, followingId: followingId)
+        if follows {
+            followEdges.insert(key)
+        } else {
+            followEdges.remove(key)
+        }
+        if persist {
+            saveFollowGraph()
+        }
+    }
+
+    private func followEdgeKey(followerId: String, followingId: String) -> String {
+        "\(followerId)|\(followingId)"
+    }
+
+    private func followerUserIds(of userId: String) -> [String] {
+        knownUserIds()
+            .filter { $0 != userId && follows(followerId: $0, followingId: userId) }
+            .sorted()
+    }
+
+    private func knownUserIds() -> [String] {
+        var ids = Set(UserData.users.map(\.userId))
+        registeredUsers.forEach { ids.insert($0.userId) }
+        if let currentId = user?.userId {
+            ids.insert(currentId)
+        }
+        return Array(ids)
+    }
+
+    private func loadFollowGraph() {
+        if let stored = UserDefaults.standard.array(forKey: StorageKey.followEdges) as? [String] {
+            followEdges = Set(stored)
+        } else {
+            followEdges = []
+        }
+
+        guard !UserDefaults.standard.bool(forKey: StorageKey.followGraphSeeded) else { return }
+        seedDefaultFollowGraph()
+        UserDefaults.standard.set(true, forKey: StorageKey.followGraphSeeded)
+    }
+
+    /// 预设：其余 4 个用户均关注测试账号；测试账号关注 Luna、Beach
+    private func seedDefaultFollowGraph() {
+        let testId = Self.testUserId
+        for preset in UserData.users where preset.userId != testId {
+            setFollow(followerId: preset.userId, followingId: testId, follows: true, persist: false)
+        }
+        setFollow(followerId: testId, followingId: "u_002", follows: true, persist: false)
+        setFollow(followerId: testId, followingId: "u_003", follows: true, persist: false)
+
+        followByUserId["u_002"] = true
+        followByUserId["u_003"] = true
+        saveFollowStates()
+        saveFollowGraph()
+    }
+
+    private func saveFollowGraph() {
+        UserDefaults.standard.set(Array(followEdges), forKey: StorageKey.followEdges)
     }
 
     private func applyingStoredFollowState(to user: DS_UserModel) -> DS_UserModel {
@@ -397,15 +796,7 @@ final class DS_CurrentUser {
     // MARK: - Avatar file
 
     func avatarImage(for user: DS_UserModel) -> UIImage? {
-        guard let path = user.avatarUrl else { return nil }
-        if path.hasPrefix("/") || path.hasPrefix("file://") {
-            let url = URL(fileURLWithPath: path.replacingOccurrences(of: "file://", with: ""))
-            return UIImage(contentsOfFile: url.path)
-        }
-        if let bundleURL = UserData.mediaFileURL(path: path) {
-            return UIImage(contentsOfFile: bundleURL.path)
-        }
-        return nil
+        UserData.image(for: user.avatarUrl)
     }
 
     @discardableResult
@@ -422,7 +813,7 @@ final class DS_CurrentUser {
 
         let fileURL = directory.appendingPathComponent("\(userId).jpg")
         try? data.write(to: fileURL)
-        return fileURL.path
+        return UserData.persistableMediaPath(for: fileURL)
     }
 
     private var postsDirectory: URL {
@@ -438,7 +829,7 @@ final class DS_CurrentUser {
         let fileURL = postsDirectory.appendingPathComponent("\(postId).jpg")
         do {
             try data.write(to: fileURL)
-            return fileURL.path
+            return UserData.persistableMediaPath(for: fileURL)
         } catch {
             return nil
         }
@@ -452,8 +843,9 @@ final class DS_CurrentUser {
 
     private func removePostMediaFiles(for post: DS_PostModel) {
         [post.mediaUrl, post.videoCoverUrl].forEach { path in
-            guard let path, path.hasPrefix("/") else { return }
-            try? FileManager.default.removeItem(atPath: path)
+            guard let path,
+                  let url = UserData.resolveMediaFileURL(path: path) else { return }
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
@@ -466,11 +858,14 @@ final class DS_CurrentUser {
             if fileManager.fileExists(atPath: fileURL.path) {
                 try fileManager.removeItem(at: fileURL)
             }
-            if sourceURL.path == fileURL.path {
-                return fileURL.path
+            if sourceURL.standardizedFileURL == fileURL.standardizedFileURL {
+                return UserData.persistableMediaPath(for: fileURL)
             }
             try fileManager.copyItem(at: sourceURL, to: fileURL)
-            return fileURL.path
+            if sourceURL.path.contains("/pick_"), fileManager.fileExists(atPath: sourceURL.path) {
+                try? fileManager.removeItem(at: sourceURL)
+            }
+            return UserData.persistableMediaPath(for: fileURL)
         } catch {
             return nil
         }
@@ -488,13 +883,21 @@ final class DS_CurrentUser {
         let fileURL = directory.appendingPathComponent("\(roomId).jpg")
         do {
             try data.write(to: fileURL)
-            return fileURL.path
+            return UserData.persistableMediaPath(for: fileURL)
         } catch {
             return nil
         }
     }
 
     // MARK: - Persistence
+
+    /// 登录预设账号：优先本地副本，并补足预设帖子的固定评论
+    private func signInUser(for preset: DS_UserModel) -> DS_UserModel {
+        guard let registered = registeredUsers.first(where: { $0.userId == preset.userId }) else {
+            return preset
+        }
+        return UserData.mergingPresetComments(into: registered, preset: preset)
+    }
 
     private func upsertRegisteredUser(_ user: DS_UserModel) {
         if let index = registeredUsers.firstIndex(where: { $0.userId == user.userId }) {
@@ -512,13 +915,32 @@ final class DS_CurrentUser {
         UserDefaults.standard.set(data, forKey: StorageKey.registeredUsers)
     }
 
+    private func loadPostExtraComments() {
+        guard let data = UserDefaults.standard.data(forKey: StorageKey.postExtraComments),
+              let decoded = try? JSONDecoder().decode([String: [DS_PostCommentModel]].self, from: data) else {
+            postExtraComments = [:]
+            return
+        }
+        postExtraComments = decoded
+    }
+
+    private func savePostExtraComments() {
+        guard let data = try? JSONEncoder().encode(postExtraComments) else { return }
+        UserDefaults.standard.set(data, forKey: StorageKey.postExtraComments)
+    }
+
     private func loadRegisteredUsers() {
         guard let data = UserDefaults.standard.data(forKey: StorageKey.registeredUsers),
               let users = try? JSONDecoder().decode([DS_UserModel].self, from: data) else {
             registeredUsers = []
             return
         }
-        registeredUsers = users
+        registeredUsers = users.map { user in
+            let migrated = UserData.migrateUserMediaPaths(user)
+            guard let preset = UserData.user(userId: user.userId) else { return migrated }
+            return UserData.mergingPresetComments(into: migrated, preset: preset)
+        }
+        saveRegisteredUsers()
     }
 
     private func restoreSessionIfNeeded() {
@@ -527,12 +949,21 @@ final class DS_CurrentUser {
         }
 
         if let registered = registeredUsers.first(where: { $0.userId == userId }) {
-            user = registered
+            let migrated = UserData.migrateUserMediaPaths(registered)
+            if let preset = UserData.user(userId: userId) {
+                user = UserData.mergingPresetComments(into: migrated, preset: preset)
+            } else {
+                user = migrated
+            }
+            loadHiddenPostIds(for: userId)
+            loadBlacklistedUserIds(for: userId)
             return
         }
 
         if let preset = UserData.users.first(where: { $0.userId == userId }) {
             user = preset
+            loadHiddenPostIds(for: userId)
+            loadBlacklistedUserIds(for: userId)
         }
     }
 }

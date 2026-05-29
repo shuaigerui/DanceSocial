@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_ChatAskItem {
+    let userId: String
     let avatarImageName: String?
     let name: String
     var isFollowing: Bool
@@ -68,7 +69,7 @@ final class DS_ChatAskCell: UITableViewCell {
     }
 
     func configure(with item: DS_ChatAskItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         nameLabel.text = item.name
         updateFollowButton(isFollowing: item.isFollowing)
     }

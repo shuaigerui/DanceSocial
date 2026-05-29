@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_ChatFriendItem {
+    let userId: String
     let avatarImageName: String?
     let name: String
 }
@@ -68,7 +69,7 @@ final class DS_ChatFriendCell: UITableViewCell {
     }
 
     func configure(with item: DS_ChatFriendItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         nameLabel.text = item.name
     }
 

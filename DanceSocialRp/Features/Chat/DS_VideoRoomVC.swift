@@ -24,6 +24,7 @@ class DS_VideoRoomVC: DS_SecondaryVC {
         static let controlButtonSpacing: CGFloat = 28
     }
 
+    private let peerUserId: String
     private let peerName: String
     private let peerAvatarPath: String?
 
@@ -117,7 +118,8 @@ class DS_VideoRoomVC: DS_SecondaryVC {
         return stack
     }()
 
-    init(peerName: String, peerAvatarPath: String? = nil) {
+    init(peerUserId: String, peerName: String, peerAvatarPath: String? = nil) {
+        self.peerUserId = peerUserId
         self.peerName = peerName
         self.peerAvatarPath = peerAvatarPath
         super.init(nibName: nil, bundle: nil)

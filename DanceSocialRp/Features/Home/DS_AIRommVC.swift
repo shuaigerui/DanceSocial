@@ -18,16 +18,8 @@ class DS_AIRommVC: DS_SecondaryVC {
         static let sendButtonSize: CGFloat = 52
     }
 
-    private var messages: [DS_AIChatMessage] = [
-        DS_AIChatMessage(
-            sender: .ai,
-            text: "Hi, I'm your AI dance assistant. Feel free to ask me any dance questions or other concerns."
-        ),
-        DS_AIChatMessage(
-            sender: .user,
-            text: "Hello. What do you need your answerHello. What do you need your answer?"
-        )
-    ]
+    private var messages: [DS_AIChatMessage] = []
+    private var pendingReplyWorkItem: DispatchWorkItem?
 
     private let topBackgroundImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "AI_top"))
@@ -109,6 +101,14 @@ class DS_AIRommVC: DS_SecondaryVC {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        showWelcomeMessage()
+    }
+
+    private func showWelcomeMessage() {
+        messages = [
+            DS_AIChatMessage(sender: .ai, text: DS_AIChatScripts.welcomeMessage)
+        ]
+        tableView.reloadData()
         scrollToBottom(animated: false)
     }
 
@@ -184,17 +184,47 @@ class DS_AIRommVC: DS_SecondaryVC {
     }
 
     @objc private func didTapBack() {
+        pendingReplyWorkItem?.cancel()
+        pendingReplyWorkItem = nil
         navigationController?.popViewController(animated: true)
     }
 
     @objc private func didTapSend() {
         let text = messageTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !text.isEmpty else { return }
+        guard !text.isEmpty, pendingReplyWorkItem == nil else { return }
 
         messages.append(DS_AIChatMessage(sender: .user, text: text))
         messageTextField.text = nil
         tableView.reloadData()
         scrollToBottom(animated: true)
+        scheduleAIReply()
+    }
+
+    private func scheduleAIReply() {
+        pendingReplyWorkItem?.cancel()
+        setInputEnabled(false)
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.messages.append(
+                DS_AIChatMessage(sender: .ai, text: DS_AIChatScripts.randomReply())
+            )
+            self.pendingReplyWorkItem = nil
+            self.setInputEnabled(true)
+            self.tableView.reloadData()
+            self.scrollToBottom(animated: true)
+        }
+        pendingReplyWorkItem = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + DS_AIChatScripts.randomReplyDelay,
+            execute: work
+        )
+    }
+
+    private func setInputEnabled(_ enabled: Bool) {
+        sendButton.isEnabled = enabled
+        messageTextField.isEnabled = enabled
+        sendButton.alpha = enabled ? 1 : 0.5
     }
 }
 

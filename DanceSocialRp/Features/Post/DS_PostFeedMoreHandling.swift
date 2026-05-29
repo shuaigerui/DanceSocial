@@ -14,7 +14,7 @@ extension UIViewController {
         if post.userId == DS_CurrentUser.shared.user?.userId {
             presentDeletePostConfirmation(postId: post.postId, onDeleted: onDeleted)
         } else {
-            navigationController?.pushViewController(DS_ReportVC(), animated: true)
+            navigationController?.pushViewController(DS_ReportVC(postId: post.postId), animated: true)
         }
     }
 

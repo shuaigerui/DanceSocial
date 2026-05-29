@@ -20,23 +20,8 @@ final class DS_PostCommentSheetVC: UIViewController {
         static let sendButtonSize: CGFloat = 52
     }
 
-    private var comments: [DS_PostCommentItem] = [
-        DS_PostCommentItem(
-            avatarImageName: nil,
-            userName: "Nana",
-            text: "An hour agoAn hour agoAn hour agoAn hour agoAn hour agoAn hour ago"
-        ),
-        DS_PostCommentItem(
-            avatarImageName: nil,
-            userName: "Nana",
-            text: "An hour agoAn hour agoAn hour agoAn hour agoAn hour agoAn hour ago"
-        ),
-        DS_PostCommentItem(
-            avatarImageName: nil,
-            userName: "Nana",
-            text: "An hour agoAn hour agoAn hour agoAn hour agoAn hour agoAn hour ago"
-        )
-    ]
+    private let postId: String
+    private var comments: [DS_PostCommentModel]
 
     private let dimmingView: UIView = {
         let view = UIView()
@@ -78,6 +63,10 @@ final class DS_PostCommentSheetVC: UIViewController {
         tableView.register(
             DS_PostCommentCell.self,
             forCellReuseIdentifier: DS_PostCommentCell.reuseIdentifier
+        )
+        tableView.register(
+            SS_EmptyTableCell.self,
+            forCellReuseIdentifier: SS_EmptyTableCell.reuseIdentifier
         )
         return tableView
     }()
@@ -121,10 +110,26 @@ final class DS_PostCommentSheetVC: UIViewController {
 
     private var panelBottomConstraint: Constraint?
 
+    init(post: DS_PostModel) {
+        self.postId = post.postId
+        self.comments = post.comments
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupGestures()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        reloadComments()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -132,11 +137,18 @@ final class DS_PostCommentSheetVC: UIViewController {
         animatePresent()
     }
 
-    static func present(from viewController: UIViewController) {
-        let sheet = DS_PostCommentSheetVC()
+    static func present(from viewController: UIViewController, post: DS_PostModel) {
+        let sheet = DS_PostCommentSheetVC(post: post)
         sheet.modalPresentationStyle = .overFullScreen
         sheet.modalTransitionStyle = .crossDissolve
         viewController.present(sheet, animated: false)
+    }
+
+    private func reloadComments() {
+        if let latest = DS_CurrentUser.shared.post(postId: postId) {
+            comments = latest.comments
+        }
+        tableView.reloadData()
     }
 
     private func setupUI() {
@@ -236,9 +248,10 @@ final class DS_PostCommentSheetVC: UIViewController {
         let text = messageTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !text.isEmpty else { return }
 
-        comments.append(DS_PostCommentItem(avatarImageName: nil, userName: "Me", text: text))
+        guard DS_CurrentUser.shared.addComment(toPostId: postId, content: text) else { return }
+
         messageTextField.text = nil
-        tableView.reloadData()
+        reloadComments()
 
         let lastRow = comments.count - 1
         guard lastRow >= 0 else { return }
@@ -248,11 +261,25 @@ final class DS_PostCommentSheetVC: UIViewController {
 
 extension DS_PostCommentSheetVC: UITableViewDataSource {
 
+    private var isEmptyComments: Bool {
+        comments.isEmpty
+    }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        comments.count
+        isEmptyComments ? 1 : comments.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        if isEmptyComments {
+            guard let cell = tableView.dequeueReusableCell(
+                withIdentifier: SS_EmptyTableCell.reuseIdentifier,
+                for: indexPath
+            ) as? SS_EmptyTableCell else {
+                return UITableViewCell()
+            }
+            return cell
+        }
+
         guard let cell = tableView.dequeueReusableCell(
             withIdentifier: DS_PostCommentCell.reuseIdentifier,
             for: indexPath

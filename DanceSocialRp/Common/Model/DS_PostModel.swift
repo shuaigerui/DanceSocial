@@ -25,6 +25,8 @@ struct DS_PostModel: Codable {
     let mediaUrl: String?
     /// 视频封面（仅 `mediaType == .video` 时使用）
     let videoCoverUrl: String?
+    /// 评论列表
+    let comments: [DS_PostCommentModel]
 
     var hasMedia: Bool {
         mediaType != nil && mediaUrl != nil
@@ -50,6 +52,18 @@ struct DS_PostModel: Codable {
         }
     }
 
+    enum CodingKeys: String, CodingKey {
+        case postId
+        case userId
+        case userName
+        case avatarUrl
+        case content
+        case mediaType
+        case mediaUrl
+        case videoCoverUrl
+        case comments
+    }
+
     init(
         postId: String,
         userId: String,
@@ -58,7 +72,8 @@ struct DS_PostModel: Codable {
         content: String,
         mediaType: DS_PostMediaType? = nil,
         mediaUrl: String? = nil,
-        videoCoverUrl: String? = nil
+        videoCoverUrl: String? = nil,
+        comments: [DS_PostCommentModel] = []
     ) {
         self.postId = postId
         self.userId = userId
@@ -68,6 +83,20 @@ struct DS_PostModel: Codable {
         self.mediaType = mediaType
         self.mediaUrl = mediaUrl
         self.videoCoverUrl = videoCoverUrl
+        self.comments = comments
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        postId = try container.decode(String.self, forKey: .postId)
+        userId = try container.decode(String.self, forKey: .userId)
+        userName = try container.decode(String.self, forKey: .userName)
+        avatarUrl = try container.decodeIfPresent(String.self, forKey: .avatarUrl)
+        content = try container.decode(String.self, forKey: .content)
+        mediaType = try container.decodeIfPresent(DS_PostMediaType.self, forKey: .mediaType)
+        mediaUrl = try container.decodeIfPresent(String.self, forKey: .mediaUrl)
+        videoCoverUrl = try container.decodeIfPresent(String.self, forKey: .videoCoverUrl)
+        comments = try container.decodeIfPresent([DS_PostCommentModel].self, forKey: .comments) ?? []
     }
 }
 
@@ -79,14 +108,16 @@ extension DS_PostModel {
         userId: String,
         userName: String,
         avatarUrl: String? = nil,
-        content: String
+        content: String,
+        comments: [DS_PostCommentModel] = []
     ) -> DS_PostModel {
         DS_PostModel(
             postId: postId,
             userId: userId,
             userName: userName,
             avatarUrl: avatarUrl,
-            content: content
+            content: content,
+            comments: comments
         )
     }
 
@@ -97,7 +128,8 @@ extension DS_PostModel {
         userName: String,
         avatarUrl: String? = nil,
         content: String,
-        imageUrl: String
+        imageUrl: String,
+        comments: [DS_PostCommentModel] = []
     ) -> DS_PostModel {
         DS_PostModel(
             postId: postId,
@@ -106,7 +138,8 @@ extension DS_PostModel {
             avatarUrl: avatarUrl,
             content: content,
             mediaType: .image,
-            mediaUrl: imageUrl
+            mediaUrl: imageUrl,
+            comments: comments
         )
     }
 
@@ -118,7 +151,8 @@ extension DS_PostModel {
         avatarUrl: String? = nil,
         content: String,
         videoUrl: String,
-        coverUrl: String? = nil
+        coverUrl: String? = nil,
+        comments: [DS_PostCommentModel] = []
     ) -> DS_PostModel {
         DS_PostModel(
             postId: postId,
@@ -128,7 +162,8 @@ extension DS_PostModel {
             content: content,
             mediaType: .video,
             mediaUrl: videoUrl,
-            videoCoverUrl: coverUrl
+            videoCoverUrl: coverUrl,
+            comments: comments
         )
     }
 }

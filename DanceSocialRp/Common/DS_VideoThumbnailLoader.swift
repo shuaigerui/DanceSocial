@@ -74,18 +74,48 @@ enum DS_VideoThumbnailLoader {
         }
     }
 
+    /// 纯同步抽帧，避免在主线程用 Task + sync 造成死锁
     private static func generateFirstFrameSynchronously(for videoPath: String) -> UIImage? {
-        var result: UIImage?
-        DispatchQueue.global(qos: .userInitiated).sync {
-            let group = DispatchGroup()
-            group.enter()
-            Task {
-                result = await generateFirstFrame(for: videoPath)
-                group.leave()
+        guard let url = resolveVideoURL(for: videoPath) else { return nil }
+
+        let work = { extractFrameSynchronously(from: url) }
+        if Thread.isMainThread {
+            var result: UIImage?
+            DispatchQueue.global(qos: .userInitiated).sync {
+                result = work()
             }
-            group.wait()
+            return result
         }
-        return result
+        return work()
+    }
+
+    private static func extractFrameSynchronously(from url: URL) -> UIImage? {
+        let asset = AVURLAsset(url: url)
+        let semaphore = DispatchSemaphore(value: 0)
+        asset.loadValuesAsynchronously(forKeys: ["tracks"]) {
+            semaphore.signal()
+        }
+        semaphore.wait()
+
+        var error: NSError?
+        guard asset.statusOfValue(forKey: "tracks", error: &error) == .loaded else {
+            return nil
+        }
+
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 1280, height: 1280)
+        generator.requestedTimeToleranceBefore = .positiveInfinity
+        generator.requestedTimeToleranceAfter = .positiveInfinity
+
+        let candidateSeconds: [Double] = [0.5, 0.1, 0, 1.0, 2.0]
+        for seconds in candidateSeconds {
+            let time = CMTime(seconds: seconds, preferredTimescale: 600)
+            if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+                return UIImage(cgImage: cgImage)
+            }
+        }
+        return nil
     }
 
     private static func extractFrame(from asset: AVURLAsset) async -> UIImage? {
@@ -143,10 +173,6 @@ enum DS_VideoThumbnailLoader {
     }
 
     private static func resolveVideoURL(for path: String) -> URL? {
-        if path.hasPrefix("/") {
-            let fileURL = URL(fileURLWithPath: path)
-            return FileManager.default.fileExists(atPath: fileURL.path) ? fileURL : nil
-        }
-        return UserData.mediaFileURL(path: path)
+        UserData.mediaFileURL(path: path)
     }
 }

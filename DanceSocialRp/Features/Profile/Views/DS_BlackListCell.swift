@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_BlackListItem {
+    let userId: String
     let avatarImageName: String?
     let userName: String
 }
@@ -66,7 +67,7 @@ final class DS_BlackListCell: UICollectionViewCell {
     }
 
     func configure(with item: DS_BlackListItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         nameLabel.text = item.userName
     }
 

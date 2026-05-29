@@ -11,42 +11,19 @@ class DS_ChatVC: DS_BaseVC {
 
     private var currentTab: DS_ChatTab = .chat
 
-    private var messageItems: [DS_ChatMessageItem] = [
-        DS_ChatMessageItem(
-            avatarImageName: nil,
-            name: "Marceline",
-            date: "August 14, 2024",
-            message: "Are you all right, my friend",
-            hasUnread: true
-        ),
-        DS_ChatMessageItem(
-            avatarImageName: nil,
-            name: "Marceline",
-            date: "August 14, 2024",
-            message: "Are you all right, my friend",
-            hasUnread: false
-        ),
-        DS_ChatMessageItem(
-            avatarImageName: nil,
-            name: "Marceline",
-            date: "August 14, 2024",
-            message: "Are you all right, my friend",
-            hasUnread: true
-        )
-    ]
+    private var messageItems: [DS_ChatMessageItem] = []
 
-    private var friendItems: [DS_ChatFriendItem] = Array(
-        repeating: DS_ChatFriendItem(avatarImageName: nil, name: "Marceline"),
-        count: 5
-    )
-
-    private var askItems: [DS_ChatAskItem] = [
-        DS_ChatAskItem(avatarImageName: nil, name: "Marceline", isFollowing: false),
-        DS_ChatAskItem(avatarImageName: nil, name: "Marceline", isFollowing: true),
-        DS_ChatAskItem(avatarImageName: nil, name: "Marceline", isFollowing: true)
-    ]
+    private var friendItems: [DS_ChatFriendItem] = []
+    private var askItems: [DS_ChatAskItem] = []
 
     private let headerView = DS_ChatHeaderView()
+    private var emptyView = DS_EmptyView()
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        loadData()
+    }
 
     private lazy var tableView: UITableView = {
         let tableView = UITableView(frame: .zero, style: .plain)
@@ -60,6 +37,19 @@ class DS_ChatVC: DS_BaseVC {
         tableView.register(DS_ChatAskCell.self, forCellReuseIdentifier: DS_ChatAskCell.reuseIdentifier)
         return tableView
     }()
+    
+    private func loadData() {
+        if let currentUserId = DS_CurrentUser.shared.user?.userId {
+            messageItems = DS_ChatStore.chatMessageItems(currentUserId: currentUserId)
+                .filter { !DS_CurrentUser.shared.isUserBlacklisted(userId: $0.userId) }
+        } else {
+            messageItems = []
+        }
+        friendItems = DS_CurrentUser.shared.chatFriendItems()
+        askItems = DS_CurrentUser.shared.chatAskItems()
+        emptyView.isHidden = currentRowCount > 0
+        tableView.reloadData()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -75,10 +65,14 @@ class DS_ChatVC: DS_BaseVC {
 
     private func setupUI() {
         view.addSubview(tableView)
+        view.addSubview(emptyView)
         tableView.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-
+        emptyView.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.centerY.equalToSuperview().offset(30)
+        }
         headerView.onTabSelected = { [weak self] tab in
             self?.switchTab(to: tab)
         }
@@ -110,6 +104,7 @@ class DS_ChatVC: DS_BaseVC {
         guard currentTab != tab else { return }
         currentTab = tab
         headerView.updateTabSelection(tab)
+        emptyView.isHidden = currentRowCount > 0
         tableView.reloadData()
         tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: false)
     }
@@ -156,19 +151,19 @@ extension DS_ChatVC: UITableViewDataSource {
     }
 
     private func openChatRoom(with item: DS_ChatMessageItem) {
-        let contact = DS_ChatRoomContact(
-            name: item.name,
-            avatarImageName: item.avatarImageName ?? "chat_room"
+        guard ds_guardMutualFollowForChat(peerUserId: item.userId) else { return }
+        navigationController?.pushViewController(
+            DS_ChatRoomVC(contact: DS_ChatRoomContact(messageItem: item)),
+            animated: true
         )
-        navigationController?.pushViewController(DS_ChatRoomVC(contact: contact), animated: true)
     }
 
     private func openChatRoom(with friend: DS_ChatFriendItem) {
-        let contact = DS_ChatRoomContact(
-            name: friend.name,
-            avatarImageName: friend.avatarImageName ?? "chat_room"
+        guard ds_guardMutualFollowForChat(peerUserId: friend.userId) else { return }
+        navigationController?.pushViewController(
+            DS_ChatRoomVC(contact: DS_ChatRoomContact(friend: friend)),
+            animated: true
         )
-        navigationController?.pushViewController(DS_ChatRoomVC(contact: contact), animated: true)
     }
 
     private func makeFriendCell(tableView: UITableView, indexPath: IndexPath) -> UITableViewCell {
@@ -203,8 +198,9 @@ extension DS_ChatVC: UITableViewDataSource {
 
     private func toggleFollow(at index: Int) {
         guard askItems.indices.contains(index) else { return }
-        askItems[index].isFollowing.toggle()
-        tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
+        let item = askItems[index]
+        DS_CurrentUser.shared.toggleFollow(userId: item.userId, isFollow: item.isFollowing)
+        loadData()
     }
 }
 
@@ -231,8 +227,11 @@ extension DS_ChatVC: UITableViewDelegate {
                 completion(false)
                 return
             }
-            self.messageItems.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath], with: .automatic)
+            let item = self.messageItems[indexPath.row]
+            if let currentUserId = DS_CurrentUser.shared.user?.userId {
+                DS_ChatStore.deleteConversation(currentUserId: currentUserId, peerUserId: item.userId)
+            }
+            self.loadData()
             completion(true)
         }
 

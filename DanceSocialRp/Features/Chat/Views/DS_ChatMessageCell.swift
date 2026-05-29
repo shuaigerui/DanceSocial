@@ -8,6 +8,7 @@
 import UIKit
 
 struct DS_ChatMessageItem {
+    let userId: String
     let avatarImageName: String?
     let name: String
     let date: String
@@ -85,7 +86,7 @@ final class DS_ChatMessageCell: UITableViewCell {
     }
 
     func configure(with item: DS_ChatMessageItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
+        avatarImageView.image = UserData.image(for: item.avatarImageName)
         nameLabel.text = item.name
         dateLabel.text = item.date
         messageLabel.text = item.message

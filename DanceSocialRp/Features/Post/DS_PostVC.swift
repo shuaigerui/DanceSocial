@@ -52,10 +52,11 @@ class DS_PostVC: DS_BaseVC {
     }
 
     private func loadData() {
-        var posts = UserData.allPosts()
-        if let user = DS_CurrentUser.shared.user {
+        var posts = DS_CurrentUser.shared.allFeedPosts()
+        if let user = DS_CurrentUser.shared.user,
+           let resolved = DS_CurrentUser.shared.resolvedUser(userId: user.userId) {
             posts.removeAll { $0.userId == user.userId }
-            posts.insert(contentsOf: user.posts, at: 0)
+            posts.insert(contentsOf: resolved.posts, at: 0)
         }
 
         self.posts = posts
@@ -113,8 +114,8 @@ extension DS_PostVC: UITableViewDataSource {
             self.navigationController?.pushViewController(DS_PersonVC(userId: userId), animated: true)
         }
         cell.onCommentTapped = { [weak self] in
-            guard let self else { return }
-            DS_PostCommentSheetVC.present(from: self)
+            guard let self, indexPath.row < self.posts.count else { return }
+            DS_PostCommentSheetVC.present(from: self, post: self.posts[indexPath.row])
         }
         cell.onMoreTapped = { [weak self] in
             guard let self, indexPath.row < self.posts.count else { return }

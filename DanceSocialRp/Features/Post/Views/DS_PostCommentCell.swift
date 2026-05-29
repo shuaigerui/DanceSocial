@@ -7,12 +7,6 @@
 
 import UIKit
 
-struct DS_PostCommentItem {
-    let avatarImageName: String?
-    let userName: String
-    let text: String
-}
-
 final class DS_PostCommentCell: UITableViewCell {
 
     static let reuseIdentifier = "DS_PostCommentCell"
@@ -64,10 +58,10 @@ final class DS_PostCommentCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(with item: DS_PostCommentItem) {
-        avatarImageView.image = item.avatarImageName.flatMap { UIImage(named: $0) }
-        userNameLabel.text = item.userName
-        commentLabel.text = item.text
+    func configure(with comment: DS_PostCommentModel) {
+        avatarImageView.image = UserData.image(for: comment.avatarUrl)
+        userNameLabel.text = comment.userName
+        commentLabel.text = comment.content
     }
 
     private func setupUI() {

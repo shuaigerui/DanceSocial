@@ -114,8 +114,8 @@ extension DS_ProfileVC: UITableViewDataSource {
         let item = feedItems[indexPath.row]
         cell.configure(with: item)
         cell.onCommentTapped = { [weak self] in
-            guard let self else { return }
-            DS_PostCommentSheetVC.present(from: self)
+            guard let self, indexPath.row < self.posts.count else { return }
+            DS_PostCommentSheetVC.present(from: self, post: self.posts[indexPath.row])
         }
         cell.onMoreTapped = { [weak self] in
             guard let self, indexPath.row < self.posts.count else { return }

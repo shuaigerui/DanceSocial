@@ -18,10 +18,7 @@ class DS_BlackListVC: DS_SecondaryVC {
         static let topSectionRatio: CGFloat = 0.72
     }
 
-    private var items: [DS_BlackListItem] = Array(
-        repeating: DS_BlackListItem(avatarImageName: nil, userName: "Marceline"),
-        count: 6
-    )
+    private var items: [DS_BlackListItem] = []
 
     private let navBarView: UIView = {
         let view = UIView()
@@ -68,9 +65,19 @@ class DS_BlackListVC: DS_SecondaryVC {
         return collectionView
     }()
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadData()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+    }
+
+    private func loadData() {
+        items = DS_CurrentUser.shared.blacklistItems()
+        collectionView.reloadData()
     }
 
     private func setupUI() {
@@ -113,8 +120,9 @@ class DS_BlackListVC: DS_SecondaryVC {
 
     private func removeItem(at index: Int) {
         guard items.indices.contains(index) else { return }
-        items.remove(at: index)
-        collectionView.reloadData()
+        let userId = items[index].userId
+        DS_CurrentUser.shared.unblacklistUser(userId: userId)
+        loadData()
     }
 
     @objc private func didTapBack() {

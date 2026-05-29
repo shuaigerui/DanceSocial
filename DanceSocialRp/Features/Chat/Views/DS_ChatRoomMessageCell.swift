@@ -93,19 +93,15 @@ final class DS_ChatRoomMessageCell: UITableViewCell {
 
     func configure(
         with message: DS_ChatRoomMessage,
-        peerAvatarImageName: String?,
-        meAvatarImageName: String?
+        peerAvatarPath: String?,
+        meAvatarPath: String?
     ) {
         let isPeer = message.sender == .peer
         peerContainerView.isHidden = !isPeer
         meContainerView.isHidden = isPeer
 
-        if let peerAvatarImageName, let image = UIImage(named: peerAvatarImageName) {
-            peerAvatarImageView.image = image
-        }
-        if let meAvatarImageName, let image = UIImage(named: meAvatarImageName) {
-            meAvatarImageView.image = image
-        }
+        peerAvatarImageView.image = UserData.image(for: peerAvatarPath)
+        meAvatarImageView.image = UserData.image(for: meAvatarPath)
 
         if isPeer {
             peerMessageLabel.text = message.text

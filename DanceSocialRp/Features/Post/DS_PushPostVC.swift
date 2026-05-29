@@ -267,40 +267,52 @@ class DS_PushPostVC: DS_SecondaryVC {
             return
         }
 
-        let didPublish: Bool
+        let mediaType: DS_PostMediaType
+        let image: UIImage?
+        let videoURL: URL?
+
         switch selectedType {
         case .instant:
-            guard let image = selectedMediaImage else {
+            guard let selectedImage = selectedMediaImage else {
                 view.makeToast("Please select an image or video")
                 return
             }
-            didPublish = DS_CurrentUser.shared.addPost(
-                content: content,
-                mediaType: .image,
-                image: image,
-                videoSourceURL: nil
-            )
+            mediaType = .image
+            image = selectedImage
+            videoURL = nil
         case .video:
-            guard let videoURL = selectedVideoFileURL else {
+            guard let selectedVideoURL = selectedVideoFileURL else {
                 view.makeToast("Please select an image or video")
                 return
             }
-            didPublish = DS_CurrentUser.shared.addPost(
+            mediaType = .video
+            image = nil
+            videoURL = selectedVideoURL
+        }
+
+        confirmButton.isEnabled = false
+        DispatchQueue.global(qos: .userInitiated).async {
+            let didPublish = DS_CurrentUser.shared.addPost(
                 content: content,
-                mediaType: .video,
-                image: nil,
+                mediaType: mediaType,
+                image: image,
                 videoSourceURL: videoURL
             )
-        }
 
-        guard didPublish else {
-            view.makeToast("Failed to publish post")
-            return
-        }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.confirmButton.isEnabled = true
 
-        view.makeToast("Post created successfully")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.navigationController?.popViewController(animated: true)
+                guard didPublish else {
+                    self.view.makeToast("Failed to publish post")
+                    return
+                }
+
+                self.view.makeToast("Post created successfully")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.navigationController?.popViewController(animated: true)
+                }
+            }
         }
     }
 
