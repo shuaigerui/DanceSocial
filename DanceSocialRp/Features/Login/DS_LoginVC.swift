@@ -116,7 +116,6 @@ class DS_LoginVC: DS_BaseVC {
 
     private lazy var primaryActionButton: UIButton = {
         let button = UIButton(type: .custom)
-        button.adjustsImageWhenHighlighted = false
         button.addTarget(self, action: #selector(didTapPrimaryAction), for: .touchUpInside)
         return button
     }()

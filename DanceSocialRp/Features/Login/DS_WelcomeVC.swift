@@ -9,6 +9,8 @@ import UIKit
 
 class DS_WelcomeVC: DS_BaseVC {
 
+    private let appleSignInCoordinator = DS_AppleSignInCoordinator()
+
     private let backgroundImageView: UIImageView = {
         let imageView = UIImageView(image: UIImage(named: "login_welcomeBg"))
         imageView.contentMode = .scaleAspectFill
@@ -97,7 +99,7 @@ class DS_WelcomeVC: DS_BaseVC {
     }
 
     @objc private func didTapAppleSignIn() {
-        navigationController?.pushViewController(DS_SetupInfoVC(source: .apple), animated: true)
+        appleSignInCoordinator.startSignIn(from: self)
     }
 
     @objc private func didTapCreateAccount() {

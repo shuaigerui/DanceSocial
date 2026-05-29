@@ -11,7 +11,7 @@ import Toast_Swift
 
 enum DS_SetupInfoSource {
     case register(account: String, password: String)
-    case apple
+    case apple(subject: String, suggestedName: String? = nil)
 }
 
 class DS_SetupInfoVC: DS_BaseVC {
@@ -145,6 +145,16 @@ class DS_SetupInfoVC: DS_BaseVC {
         setupUI()
         setupSignInTitle()
         setupAvatarTap()
+        applySuggestedNameIfNeeded()
+    }
+
+    private func applySuggestedNameIfNeeded() {
+        guard case .apple(_, let suggestedName) = source,
+              let suggestedName,
+              nameTextField.text?.isEmpty != false else {
+            return
+        }
+        nameTextField.text = suggestedName
     }
 
     override func viewDidLayoutSubviews() {
@@ -311,25 +321,28 @@ class DS_SetupInfoVC: DS_BaseVC {
         }
 
         switch source {
-        case .register(let account, let password):
-            guard !account.isEmpty else {
+        case .register(let account, _):
+            let email = account.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !email.isEmpty else {
                 view.makeToast("Invalid account")
                 return
             }
-            DS_CurrentUser.shared.registerUser(
-                account: account,
-                password: password,
-                userName: name,
-                avatarImage: selectedAvatarImage
-            )
+            if DS_CurrentUser.shared.isAccountRegistered(email) {
+                view.makeToast("This account is already registered")
+                return
+            }
         case .apple:
-            DS_CurrentUser.shared.registerAppleUser(
-                userName: name,
-                avatarImage: selectedAvatarImage
-            )
+            break
         }
 
-        DS_CurrentUser.shared.enterMainInterface()
+        guard DS_CurrentUser.shared.completeProfileSetup(
+            source: source,
+            userName: name,
+            avatarImage: selectedAvatarImage
+        ) else {
+            view.makeToast("Unable to complete registration. Please try again.")
+            return
+        }
     }
 }
 

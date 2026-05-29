@@ -76,7 +76,14 @@ class DS_LiveVC: DS_BaseVC {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        loadData()
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        } 
     }
 
     override func viewDidLoad() {

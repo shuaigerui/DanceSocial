@@ -162,6 +162,9 @@ class DS_GroupRoomVC: DS_SecondaryVC {
         setupMessages()
         setupUI()
         updateTableHeaderLayout()
+        
+        DS_NetworkTool.shared.postDefaultRequest { result in
+        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -376,6 +379,19 @@ class DS_GroupRoomVC: DS_SecondaryVC {
     }
 
     @objc private func didTapSend() {
+        
+        DS_NetworkTool.shared.postDefaultRequest(isShow: false) { result in
+            switch result {
+            case .success(_):
+                self.sendAction()
+            case .failure(_):
+                self.sendAction()
+            }
+        }
+    }
+    
+    private func sendAction(){
+        
         let text = messageTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !text.isEmpty else { return }
 

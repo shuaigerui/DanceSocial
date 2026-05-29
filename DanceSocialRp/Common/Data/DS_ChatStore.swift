@@ -99,6 +99,11 @@ enum DS_ChatStore {
         saveConversations(conversations, currentUserId: currentUserId)
     }
 
+    /// 删除账号时清空该用户的全部私信记录
+    static func purgeAll(currentUserId: String) {
+        UserDefaults.standard.removeObject(forKey: storageKey(for: currentUserId))
+    }
+
     static func chatMessageItems(currentUserId: String) -> [DS_ChatMessageItem] {
         loadConversations(currentUserId: currentUserId)
             .filter { !$0.messages.isEmpty }

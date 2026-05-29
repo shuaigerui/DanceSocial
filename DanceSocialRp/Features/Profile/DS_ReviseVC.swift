@@ -97,7 +97,14 @@ class DS_ReviseVC: DS_SecondaryVC {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        loadData()
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        }
     }
 
     override func viewDidLoad() {
@@ -207,6 +214,17 @@ class DS_ReviseVC: DS_SecondaryVC {
 
     @objc private func didTapRevise() {
         view.endEditing(true)
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.doneAction()
+            case .failure(_):
+                self.doneAction()
+            }
+        }
+    }
+    
+    private func doneAction(){
         guard DS_CurrentUser.shared.updateProfile(
             userName: nameTextField.text,
             avatarImage: selectedAvatarImage

@@ -64,10 +64,19 @@ class DS_BlackListVC: DS_SecondaryVC {
         )
         return collectionView
     }()
+    private var emptyView = DS_EmptyView()
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        loadData()
+        
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                self.loadData()
+            case .failure(_):
+                self.loadData()
+            }
+        }
     }
 
     override func viewDidLoad() {
@@ -77,6 +86,7 @@ class DS_BlackListVC: DS_SecondaryVC {
 
     private func loadData() {
         items = DS_CurrentUser.shared.blacklistItems()
+        emptyView.isHidden = items.count > 0
         collectionView.reloadData()
     }
 
@@ -85,6 +95,7 @@ class DS_BlackListVC: DS_SecondaryVC {
 
         view.addSubview(navBarView)
         view.addSubview(collectionView)
+        view.addSubview(emptyView)
 
         navBarView.addSubview(backButton)
         navBarView.addSubview(titleLabel)
@@ -108,6 +119,10 @@ class DS_BlackListVC: DS_SecondaryVC {
         collectionView.snp.makeConstraints { make in
             make.top.equalTo(navBarView.snp.bottom).offset(8)
             make.leading.trailing.bottom.equalToSuperview()
+        }
+        
+        emptyView.snp.makeConstraints { make in
+            make.center.equalToSuperview()
         }
     }
 

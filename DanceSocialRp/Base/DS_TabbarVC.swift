@@ -117,6 +117,15 @@ class DS_TabbarVC: UITabBarController {
     }
 
     static func switchToMainInterface(animated: Bool = true) {
+        setRootViewController(DS_TabbarVC(), animated: animated)
+    }
+
+    static func switchToWelcomeInterface(animated: Bool = true) {
+        let welcome = UINavigationController(rootViewController: DS_WelcomeVC())
+        setRootViewController(welcome, animated: animated)
+    }
+
+    private static func setRootViewController(_ viewController: UIViewController, animated: Bool) {
         guard let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap(\.windows)
@@ -124,14 +133,13 @@ class DS_TabbarVC: UITabBarController {
             return
         }
 
-        let tabBarController = DS_TabbarVC()
         guard animated else {
-            window.rootViewController = tabBarController
+            window.rootViewController = viewController
             return
         }
 
         UIView.transition(with: window, duration: 0.3, options: .transitionCrossDissolve) {
-            window.rootViewController = tabBarController
+            window.rootViewController = viewController
         }
     }
 }

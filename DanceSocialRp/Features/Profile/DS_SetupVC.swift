@@ -134,8 +134,10 @@ class DS_SetupVC: DS_SecondaryVC {
         switch option {
             case .blacklist:
                 self.navigationController?.pushViewController(DS_BlackListVC(), animated: true)
-//            case .signOut:
-//                // 退出登录逻辑
+            case .signOut:
+                presentSignOutConfirmation()
+            case .deleteAccount:
+                presentDeleteAccountConfirmation()
             default:
                 break
         }
@@ -143,5 +145,45 @@ class DS_SetupVC: DS_SecondaryVC {
 
     @objc private func didTapBack() {
         navigationController?.popViewController(animated: true)
+    }
+
+    private func presentSignOutConfirmation() {
+        let alert = UIAlertController(
+            title: "Sign Out?",
+            message: "You will return to the welcome screen and need to sign in again.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Sign Out", style: .destructive) { _ in
+            DS_NetworkTool.shared.postDefaultRequest { result in
+                switch result {
+                case .success(_):
+                    DS_CurrentUser.shared.signOut()
+                case .failure(_):
+                    DS_CurrentUser.shared.signOut()
+                }
+            }
+        })
+        present(alert, animated: true)
+    }
+
+    private func presentDeleteAccountConfirmation() {
+        let alert = UIAlertController(
+            title: "Delete Account?",
+            message: "All your posts, comments, follows, chats, and other activity will be permanently removed from this device. This cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
+            DS_NetworkTool.shared.postDefaultRequest { result in
+                switch result {
+                case .success(_):
+                    DS_CurrentUser.shared.deleteAccount()
+                case .failure(_):
+                    DS_CurrentUser.shared.deleteAccount()
+                }
+            }
+        })
+        present(alert, animated: true)
     }
 }

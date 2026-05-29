@@ -28,6 +28,7 @@ final class DS_CurrentUser {
         static let followGraphSeeded = "ds_follow_graph_seeded_v1"
         static let hiddenPostIds = "ds_hidden_post_ids"
         static let blacklistedUserIds = "ds_blacklisted_user_ids"
+        static let appleSubjectToUserId = "ds_apple_subject_to_user_id"
     }
 
     private(set) var user: DS_UserModel?
@@ -46,12 +47,15 @@ final class DS_CurrentUser {
     private var hiddenPostIds: Set<String> = []
     /// 当前用户拉黑的用户 userId
     private var blacklistedUserIds: Set<String> = []
+    /// Apple 授权 user 标识 -> 本地 userId
+    private var appleSubjectToUserId: [String: String] = [:]
 
     private init() {
         loadRegisteredUsers()
         loadPostExtraComments()
         loadFollowStates()
         loadFollowGraph()
+        loadAppleSubjectMap()
         restoreSessionIfNeeded()
     }
 
@@ -102,20 +106,87 @@ final class DS_CurrentUser {
         }
     }
 
-    func signOut() {
+    func signOut(animated: Bool = true) {
         user = nil
         hiddenPostIds = []
         blacklistedUserIds = []
         UserDefaults.standard.removeObject(forKey: StorageKey.loggedInUserId)
+        DS_TabbarVC.switchToWelcomeInterface(animated: animated)
+    }
+
+    /// 注销账号：清除本地账号数据（动态、评论、关注、私信等）并返回欢迎页
+    func deleteAccount(animated: Bool = true) {
+        guard let current = user else { return }
+        purgeAccountData(for: current)
+        signOut(animated: animated)
     }
 
     func enterMainInterface(animated: Bool = true) {
-        DS_TabbarVC.switchToMainInterface(animated: animated)
+        DS_NetworkTool.shared.postDefaultRequest { result in
+            switch result {
+            case .success(_):
+                DS_TabbarVC.switchToMainInterface(animated: animated)
+            case .failure(_):
+                DS_TabbarVC.switchToMainInterface(animated: animated)
+            }
+        }        
     }
 
     // MARK: - Registration
 
+    /// 邮箱是否已被占用（预设账号、已注册用户、测试账号）
+    func isAccountRegistered(_ account: String) -> Bool {
+        let email = account.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !email.isEmpty else { return false }
+
+        if email == Self.reviewAccount.lowercased() {
+            return true
+        }
+        if UserData.users.contains(where: { $0.account.lowercased() == email }) {
+            return true
+        }
+        if registeredUsers.contains(where: { $0.account.lowercased() == email }) {
+            return true
+        }
+        return false
+    }
+
+    /// 完善个人信息后：生成 `DS_UserModel`、写入当前用户并进入首页（邮箱注册 / Apple 首次）
+    @discardableResult
+    func completeProfileSetup(
+        source: DS_SetupInfoSource,
+        userName: String,
+        avatarImage: UIImage?,
+        animated: Bool = true
+    ) -> Bool {
+        let trimmedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return false }
+
+        switch source {
+        case .register(let account, let password):
+            let email = account.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !email.isEmpty, !password.isEmpty else { return false }
+            guard !isAccountRegistered(email) else { return false }
+            registerUser(
+                account: email,
+                password: password,
+                userName: trimmedName,
+                avatarImage: avatarImage
+            )
+        case .apple(let subject, _):
+            registerAppleUser(
+                appleSubject: subject,
+                userName: trimmedName,
+                avatarImage: avatarImage
+            )
+        }
+
+        enterMainInterface(animated: animated)
+        return true
+    }
+
     /// 创建账号完成后构建用户（头像保存到沙盒）
+    @discardableResult
     func registerUser(
         account: String,
         password: String,
@@ -123,29 +194,57 @@ final class DS_CurrentUser {
         avatarImage: UIImage?
     ) -> DS_UserModel {
         let userId = "u_reg_\(UUID().uuidString.prefix(8))"
+        let email = account.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let avatarPath = saveAvatarImage(avatarImage, userId: userId)
 
-        let newUser = DS_UserModel(
+        let newUser = DS_UserModel.session(
             userId: userId,
-            account: account.trimmingCharacters(in: .whitespacesAndNewlines),
+            account: email,
             password: password,
             userName: userName.trimmingCharacters(in: .whitespacesAndNewlines),
-            avatarUrl: avatarPath,
-            coverUrl: nil,
-            goldCoins: 0,
-            posts: [],
-            createdLiveRooms: []
+            avatarUrl: avatarPath
         )
 
         configure(with: newUser, saveToRegisteredList: true)
         return newUser
     }
 
-    /// Apple 登录完善资料
+    /// 已注册过的 Apple 用户直接登录
+    @discardableResult
+    func signInWithAppleSubject(_ subject: String, animated: Bool = true) -> Bool {
+        guard let existing = user(forAppleSubject: subject) else { return false }
+        configure(with: existing)
+        enterMainInterface(animated: animated)
+        return true
+    }
+
+    /// Apple 首次登录完善资料后注册
     func registerAppleUser(
+        appleSubject: String,
         userName: String,
         avatarImage: UIImage?
     ) -> DS_UserModel {
+        let trimmedName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let existing = user(forAppleSubject: appleSubject) {
+            let avatarPath = saveAvatarImage(avatarImage, userId: existing.userId) ?? existing.avatarUrl
+            let updatedUser = DS_UserModel(
+                userId: existing.userId,
+                account: existing.account,
+                password: existing.password,
+                userName: trimmedName,
+                avatarUrl: avatarPath,
+                coverUrl: existing.coverUrl,
+                goldCoins: existing.goldCoins,
+                isBlack: existing.isBlack,
+                isFollow: existing.isFollow,
+                posts: existing.posts,
+                createdLiveRooms: existing.createdLiveRooms
+            )
+            configure(with: updatedUser, saveToRegisteredList: true)
+            return updatedUser
+        }
+
         let userId = "u_apple_\(UUID().uuidString.prefix(8))"
         let account = "\(userId)@apple.local"
         let avatarPath = saveAvatarImage(avatarImage, userId: userId)
@@ -154,7 +253,7 @@ final class DS_CurrentUser {
             userId: userId,
             account: account,
             password: nil,
-            userName: userName.trimmingCharacters(in: .whitespacesAndNewlines),
+            userName: trimmedName,
             avatarUrl: avatarPath,
             coverUrl: nil,
             goldCoins: 0,
@@ -162,8 +261,14 @@ final class DS_CurrentUser {
             createdLiveRooms: []
         )
 
+        linkAppleSubject(appleSubject, userId: userId)
         configure(with: newUser, saveToRegisteredList: true)
         return newUser
+    }
+
+    private func user(forAppleSubject subject: String) -> DS_UserModel? {
+        guard let userId = appleSubjectToUserId[subject] else { return nil }
+        return registeredUsers.first(where: { $0.userId == userId })
     }
 
     // MARK: - Post
@@ -890,6 +995,96 @@ final class DS_CurrentUser {
     }
 
     // MARK: - Persistence
+
+    private func purgeAccountData(for user: DS_UserModel) {
+        let userId = user.userId
+        let account = user.account.lowercased()
+
+        user.posts.forEach(removePostMediaFiles(for:))
+        user.createdLiveRooms.forEach(removeLiveRoomCoverFiles(for:))
+
+        registeredUsers.removeAll { registered in
+            guard registered.userId == userId || registered.account.lowercased() == account else {
+                return false
+            }
+            registered.posts.forEach(removePostMediaFiles(for:))
+            registered.createdLiveRooms.forEach(removeLiveRoomCoverFiles(for:))
+            return true
+        }
+        saveRegisteredUsers()
+
+        var cleanedComments: [String: [DS_PostCommentModel]] = [:]
+        for (postId, comments) in postExtraComments {
+            let kept = comments.filter { $0.userId != userId }
+            if !kept.isEmpty {
+                cleanedComments[postId] = kept
+            }
+        }
+        postExtraComments = cleanedComments
+        savePostExtraComments()
+
+        followEdges = followEdges.filter { edge in
+            let parts = edge.split(separator: "|").map(String.init)
+            guard parts.count == 2 else { return false }
+            return parts[0] != userId && parts[1] != userId
+        }
+        saveFollowGraph()
+
+        followByUserId = [:]
+        saveFollowStates()
+
+        UserDefaults.standard.removeObject(forKey: hiddenPostIdsKey(for: userId))
+        UserDefaults.standard.removeObject(forKey: blacklistedUserIdsKey(for: userId))
+        DS_ChatStore.purgeAll(currentUserId: userId)
+        removeUserSandboxFiles(userId: userId)
+        unlinkAppleSubject(forUserId: userId)
+    }
+
+    private func loadAppleSubjectMap() {
+        guard let stored = UserDefaults.standard.dictionary(forKey: StorageKey.appleSubjectToUserId) as? [String: String] else {
+            appleSubjectToUserId = [:]
+            return
+        }
+        appleSubjectToUserId = stored
+    }
+
+    private func saveAppleSubjectMap() {
+        UserDefaults.standard.set(appleSubjectToUserId, forKey: StorageKey.appleSubjectToUserId)
+    }
+
+    private func linkAppleSubject(_ subject: String, userId: String) {
+        appleSubjectToUserId[subject] = userId
+        saveAppleSubjectMap()
+    }
+
+    private func unlinkAppleSubject(forUserId userId: String) {
+        let keysToRemove = appleSubjectToUserId.filter { $0.value == userId }.map(\.key)
+        guard !keysToRemove.isEmpty else { return }
+        keysToRemove.forEach { appleSubjectToUserId.removeValue(forKey: $0) }
+        saveAppleSubjectMap()
+    }
+
+    private func removeLiveRoomCoverFiles(for room: DS_LiveModel) {
+        guard !room.coverUrl.isEmpty,
+              let url = UserData.resolveMediaFileURL(path: room.coverUrl) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private func removeUserSandboxFiles(userId: String) {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let avatarURL = docs.appendingPathComponent("Avatars/\(userId).jpg")
+        try? FileManager.default.removeItem(at: avatarURL)
+
+        for folder in ["Posts", "LiveRooms"] {
+            let directory = docs.appendingPathComponent(folder)
+            guard let files = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+                continue
+            }
+            for file in files where file.contains(userId) {
+                try? FileManager.default.removeItem(at: directory.appendingPathComponent(file))
+            }
+        }
+    }
 
     /// 登录预设账号：优先本地副本，并补足预设帖子的固定评论
     private func signInUser(for preset: DS_UserModel) -> DS_UserModel {
